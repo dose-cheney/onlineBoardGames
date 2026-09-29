@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');global.window=global;
 for(const f of ['core','achievements','splendor','scout','poker'])require('../js/'+f+'.js');
 const C=GameCore,A=C.Achievements;
-assert.equal(A.items.length,30);assert.equal(new Set(A.items.map(a=>a.id)).size,30);
+assert.equal(A.items.length,37);assert.equal(new Set(A.items.map(a=>a.id)).size,37);
 {
   const p=C.createProfile();p.stats.splendor.completed=4;p.stats.scout.completed=3;p.stats.poker.completed=3;
   for(const s of Object.values(p.stats))s.wins=1;
@@ -37,4 +37,39 @@ assert.equal(A.items.length,30);assert.equal(new Set(A.items.map(a=>a.id)).size,
   g.finished=false;g.players[0].stack=800;A.check(p,a);assert(!p.achievements.includes('poker_double'),'double requires cashing out');
   g.finished=true;g.hadLowStack=true;A.check(p,a);for(const id of ['poker_profit','poker_double','poker_comeback'])assert(p.achievements.includes(id));
 }
-console.log('Achievement checks passed: 30 unique achievements, milestones, per-game conditions, human-only combos, cumulative buyins, idempotence and save compatibility.');
+{
+  const p=C.createProfile();p.history=[{type:'poker',mode:'cash',rank:1,players:10,difficulty:'hard',buyin:200,peakStack:2000,lowStack:true}];
+  A.check(p);assert(!p.achievements.some(id=>id.startsWith('tournament_')),'cash history cannot award tournament achievements');
+  p.history.push({type:'poker',mode:'tournament',rank:2});assert(A.check(p).includes('tournament_finish'));
+  p.history.push({type:'poker',mode:'tournament',rank:1});assert(A.check(p).includes('tournament_win'));
+  assert.deepEqual(p.achievements.filter(id=>id.startsWith('tournament_')),['tournament_finish','tournament_win'],'old history only grants achievements supported by recorded fields');
+  p.history.push({type:'poker',mode:'tournament',rank:1,players:9,difficulty:'hard',buyin:200,peakStack:1800,lowStack:true});
+  A.check(p);for(const id of A.items.filter(a=>a.mode==='tournament').map(a=>a.id))assert(p.achievements.includes(id));
+  const restored=C.attachSlots(JSON.parse(JSON.stringify(p)));assert(C.validProfile(restored));assert.deepEqual(A.check(restored),[],'restoring history never grants duplicates');
+}
+function tournamentResult(n,difficulty,rank,extra={}){
+  const p=C.createProfile(),g=C.Games.poker.create(n,{mode:'tournament',buyin:200,small:1,big:2});
+  g.finished=true;g.ranks=Array.from({length:n},(_,i)=>i===0?rank:i===rank-1?1:i+1);g.players[0].stack=rank===1?n*200:0;g.tournamentPeakStack=Math.max(200,g.players[0].stack);
+  Object.assign(g,extra);return {p,g,session:{type:'poker',difficulty,game:g}};
+}
+for(const [n,difficulty,rank] of [[5,'hard',2],[6,'hard',2],[8,'medium',1],[9,'hard',1]]){
+  const {p,g,session}=tournamentResult(n,difficulty,rank,{hadLowStack:true});A.check(p,session);
+  assert(p.achievements.includes('tournament_finish'));assert.equal(p.achievements.includes('tournament_win'),rank===1);
+  assert.equal(p.achievements.includes('tournament_finalist'),n>=6&&rank<=2);
+  assert.equal(p.achievements.includes('tournament_full_table'),n>=9&&rank===1);
+  assert.equal(p.achievements.includes('tournament_hard'),difficulty==='hard'&&rank===1);
+  assert(!p.achievements.includes('tournament_comeback'),'the old all-in-sensitive flag is not evidence of a short tournament stack');
+  for(const id of ['poker_profit','poker_double','poker_comeback'])assert(!p.achievements.includes(id));
+  g.tournamentLowStack=true;A.check(p,session);assert.equal(p.achievements.includes('tournament_comeback'),rank===1);
+}
+{
+  const p=C.createProfile(),g=C.Games.poker.create(4,{mode:'tournament',buyin:200,small:1,big:2}),session={type:'poker',difficulty:'hard',game:g};
+  g.handCount=1;g.players[0].stack=600;A.check(p,session);assert(!p.achievements.includes('tournament_triple'),'in-flight chips are not counted as a settled peak');
+  g.betweenHands=true;g.players[0].stack=599;A.check(p,session);assert(!p.achievements.includes('tournament_triple'));
+  g.players[0].stack=600;assert(A.check(p,session).includes('tournament_triple'));
+  assert(!p.achievements.includes('tournament_finish'),'an unfinished match is not completion');
+  p.active=session;g.tournamentPeakStack=600;g.players[0].stack=100;
+  assert.equal(A.progress(p,'tournament_triple'),'本场最高 600 / 600 筹码');
+  g.tournamentLowStack=true;assert(A.progress(p,'tournament_comeback').includes('等待夺冠'));
+}
+console.log('Achievement checks passed: 37 unique achievements, tournament milestones, historical backfill, thresholds, cash separation, idempotence and save compatibility.');

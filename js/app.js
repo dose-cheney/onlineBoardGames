@@ -13,10 +13,12 @@
     scout:'不改手牌顺序，用表演与招募拼出精彩牌组。',
     athlete:'36 位奇妙选手，用技能连锁跑出四场惊喜。',
     flip7:'再翻一张，还是见好就收？向七张不同数字冲刺。',
-    poker:'按位置、筹码和牌力作决定的虚拟现金桌。'
+    poker:'选择现金桌，或用固定筹码参加锦标赛争夺冠军。'
   };
   const achievements=Object.fromEntries(C.Achievements.items.map(a=>[a.id,a.title+' · '+a.description]));
   let profile=null,screen='home',selected='splendor',lastResult=null,error='',autoTimer=null,lastTick=Date.now(),importTarget=null,ui={},saveBusy=false,notice='',renderedView='';
+  const isTournament=g=>g.mode==='tournament';
+  const tournamentRules='无限注德州扑克锦标赛。所有人使用相同初始筹码，不可补买，输光淘汰；最后留下的一人获得冠军。比赛筹码独立于钱包，不扣款或兑换。盲注可按设定手数翻倍，或全程固定；升盲在下一手开始时生效。同手淘汰时，手牌开始时筹码更多者名次靠前，相同筹码共享名次。';
   function pauseAll(p){Object.values(p.games).forEach(a=>{if(a)a.paused=true})}
   function hasGames(){return Object.values(profile.games).some(Boolean)}
   function validateGames(p){Object.values(p.games).forEach(a=>{if(a){const engine=C.Games[a.type];if(!engine.validate(a.game,a.players))throw Error('当前对局数据损坏');engine.render(a.game)}})}
@@ -27,9 +29,11 @@
   function statCard(n,label){return '<div class="stat"><strong>'+n+'</strong><span>'+label+'</span></div>'}
   function achievementPanel(){
     const groups={general:'通用',...C.names};
+    const cards=items=>'<div class="achievement-grid">'+items.map(a=>{const unlocked=profile.achievements.includes(a.id),progress=C.Achievements.progress(profile,a.id);return '<article class="achievement '+(unlocked?'unlocked':'')+'"><strong>'+(unlocked?'✓ ':'○ ')+a.title+'</strong><span>'+a.description+'</span><small>'+(unlocked?'已解锁':progress||'未解锁')+'</small></article>'}).join('')+'</div>';
     return '<div class="panel achievements"><h2>成就 · 已解锁 '+C.Achievements.items.filter(a=>profile.achievements.includes(a.id)).length+' / '+C.Achievements.items.length+'</h2>'+Object.keys(groups).map(group=>{
       const items=C.Achievements.items.filter(a=>a.group===group),count=items.filter(a=>profile.achievements.includes(a.id)).length;
-      return '<details class="achievement-group" data-detail-id="achievement-'+group+'" '+(group==='general'?'open':'')+'><summary>'+groups[group]+' · '+count+' / '+items.length+'</summary><div class="achievement-grid">'+items.map(a=>{const unlocked=profile.achievements.includes(a.id),progress=C.Achievements.progress(profile,a.id);return '<article class="achievement '+(unlocked?'unlocked':'')+'"><strong>'+(unlocked?'✓ ':'○ ')+a.title+'</strong><span>'+a.description+'</span><small>'+(unlocked?'已解锁':progress||'未解锁')+'</small></article>'}).join('')+'</div></details>';
+      const content=group==='poker'?'<h3 class="achievement-section">现金桌与通用</h3>'+cards(items.filter(a=>a.mode!=='tournament'))+'<h3 class="achievement-section">锦标赛</h3>'+cards(items.filter(a=>a.mode==='tournament')):cards(items);
+      return '<details class="achievement-group" data-detail-id="achievement-'+group+'" '+(group==='general'?'open':'')+'><summary>'+groups[group]+' · '+count+' / '+items.length+'</summary>'+content+'</details>';
     }).join('')+'</div>';
   }
   function bankFeedback(id,message){return '<div id="'+id+'" class="field-error bank-feedback" role="alert">'+C.escape(message||'')+'</div>'}
@@ -44,37 +48,42 @@
     h+='<div class="panel"><h2>游玩记录</h2><div class="stats">'+statCard(t.started,'开局次数')+statCard(t.completed,'完成场次')+statCard(t.wins,'胜利次数')+statCard(C.fmtTime(t.activeMs),'有效游玩时长')+'</div><div class="section-title">各游戏</div><div class="table-wrap"><table style="width:100%;border-collapse:collapse"><thead><tr><th align="left">游戏</th><th>开局</th><th>完成</th><th>胜利</th><th>平均排名</th></tr></thead><tbody>'+Object.keys(C.names).map(k=>{const s=profile.stats[k];return '<tr><td>'+C.names[k]+'</td><td align="center">'+s.started+'</td><td align="center">'+s.completed+'</td><td align="center">'+s.wins+'</td><td align="center">'+(s.completed?(s.rankSum/s.completed).toFixed(2):'—')+'</td></tr>'}).join('')+'</tbody></table></div></div>';
     h+=achievementPanel();
     h+=bankPanel();
-    h+='<div class="panel"><h2>最近完成</h2>'+(profile.history.length?'<div class="log">'+profile.history.slice(0,10).map(x=>'<div>'+C.escape(x.date)+' · '+C.names[x.type]+' · 第 '+x.rank+' 名 · '+C.fmtTime(x.elapsedMs)+'</div>').join('')+'</div>':'<p class="muted">还没有完成的游戏。</p>')+'<div class="actions"><button class="danger" data-action="app-reset" '+(hasGames()?'disabled':'')+'>重置本地档案</button></div></div>';
+    h+='<div class="panel"><h2>最近完成</h2>'+(profile.history.length?'<div class="log">'+profile.history.slice(0,10).map(x=>'<div>'+C.escape(x.date)+' · '+C.names[x.type]+(x.type==='poker'?' · '+(x.mode==='tournament'?'锦标赛':'现金桌'):'')+' · 第 '+x.rank+' 名 · '+C.fmtTime(x.elapsedMs)+'</div>').join('')+'</div>':'<p class="muted">还没有完成的游戏。</p>')+'<div class="actions"><button class="danger" data-action="app-reset" '+(hasGames()?'disabled':'')+'>重置本地档案</button></div></div>';
     return h;
   }
   function setup(){
-    const k=selected,limit=C.limits[k];
-    let h='<div class="setup"><button data-action="app-home">← 返回首页</button><div class="panel"><span class="eyebrow">NEW GAME</span><h1>'+C.names[k]+'</h1><p>'+descriptions[k]+'</p><h2>规则简介</h2><p class="subtle">'+rules[k]+'</p><div class="form-grid"><div class="field"><label for="players">总人数（包含你）</label><select id="players">'+Array.from({length:limit[1]-limit[0]+1},(_,i)=>'<option value="'+(i+limit[0])+'" '+(i+limit[0]===Math.min(4,limit[1])?'selected':'')+'>'+(i+limit[0])+' 人 · '+(i+limit[0]-1)+' 名电脑</option>').join('')+'</select></div><div class="field"><label for="difficulty">电脑难度</label><select id="difficulty"><option value="easy">初级</option><option value="medium" selected>中级</option><option value="hard">高级</option></select></div>';
-    if(k==='poker')h+='<div class="field"><label for="small">小盲注</label><input id="small" type="number" min="1" value="1"></div><div class="field"><label for="big">大盲注</label><input id="big" type="number" min="2" value="2"></div><div class="field"><label for="buyin">每人初始买入</label><input id="buyin" type="number" min="40" value="200"></div>';
+    const k=selected,limit=C.limits[k],mode=ui.pokerMode||'cash',tour=k==='poker'&&mode==='tournament',fields=ui.setupFields||{},value=(id,otherwise)=>C.escape(fields[id]??otherwise);
+    let h='<div class="setup"><button data-action="app-home">← 返回首页</button><div class="panel"><span class="eyebrow">NEW GAME</span><h1>'+C.names[k]+'</h1><p>'+descriptions[k]+'</p>';
+    if(k==='poker')h+='<div class="poker-mode-tabs" role="group" aria-label="德州玩法"><button data-action="app-poker-mode" data-mode="cash" aria-pressed="'+(!tour)+'" class="'+(!tour?'primary':'')+'">现金桌</button><button data-action="app-poker-mode" data-mode="tournament" aria-pressed="'+tour+'" class="'+(tour?'primary':'')+'">锦标赛 · 争夺冠军</button></div>';
+    h+='<h2>规则简介</h2><p class="subtle">'+(tour?tournamentRules:rules[k])+'</p><div class="form-grid"><div class="field"><label for="players">总人数（包含你）</label><select id="players">'+Array.from({length:limit[1]-limit[0]+1},(_,i)=>'<option value="'+(i+limit[0])+'" '+(i+limit[0]===Number(fields.players??Math.min(4,limit[1]))?'selected':'')+'>'+(i+limit[0])+' 人 · '+(i+limit[0]-1)+' 名电脑</option>').join('')+'</select></div><div class="field"><label for="difficulty">电脑难度</label><select id="difficulty">'+Object.entries({easy:'初级',medium:'中级',hard:'高级'}).map(([id,name])=>'<option value="'+id+'" '+(id===(fields.difficulty||'medium')?'selected':'')+'>'+name+'</option>').join('')+'</select></div>';
+    if(k==='poker')h+='<div class="field"><label for="small">'+(tour?'初始小盲注':'小盲注')+'</label><input id="small" type="number" min="1" value="'+value('small',1)+'"></div><div class="field"><label for="big">'+(tour?'初始大盲注':'大盲注')+'</label><input id="big" type="number" min="2" value="'+value('big',2)+'"></div><div class="field"><label for="buyin">'+(tour?'每人初始比赛筹码':'每人初始买入')+'</label><input id="buyin" type="number" min="40" value="'+value('buyin',200)+'"><small class="muted">至少为初始大盲注的 20 倍</small></div>';
+    if(tour)h+='<div class="field"><label for="blind-every">每多少手盲注翻倍</label><input id="blind-every" type="number" min="0" max="100" step="1" value="'+value('blind-every',10)+'"><small class="muted">默认 10 手；填 0 使用固定盲注</small></div>';
     if(k==='athlete')h+='<div class="field"><label for="draft-mode">组队方式</label><select id="draft-mode"><option value="draft">蛇形选角</option><option value="random">随机队伍 · 快速开赛</option></select></div><div class="field"><label for="track-mode">赛道</label><select id="track-mode"><option value="alternating">温和／狂野交替</option><option value="mild">全程温和 · 初次熟悉技能</option></select></div>';
-    h+='</div>'+(k==='poker'?'<div class="notice">你的钱包：'+C.formatMoney(profile.wallet)+'。买入会从钱包扣除，离桌后桌面筹码返还；无需每手重置资金。</div>':'')+'<div class="actions"><button class="primary" data-action="app-start">开始游戏</button></div></div>'+(k==='poker'?bankPanel():'')+'</div>';
+    h+='</div>'+(k==='poker'?'<div class="notice">'+(tour?'免费参赛 · 比赛筹码独立于钱包。你和电脑均不能补买，输光淘汰，目标是拿第一。':'你的钱包：'+C.formatMoney(profile.wallet)+'。买入会从钱包扣除，离桌后桌面筹码返还；无需每手重置资金。')+'</div>':'')+'<div class="actions"><button class="primary" data-action="app-start">'+(tour?'开始锦标赛':'开始游戏')+'</button></div></div>'+(k==='poker'&&!tour?bankPanel():'')+'</div>';
     return h;
   }
   function game(){
-    const a=profile.active,g=a.game;
+    const a=profile.active,g=a.game,tour=a.type==='poker'&&isTournament(g);
     let h='<div class="game-header compact-header"><div class="row"><button data-action="app-home">← 换一张桌</button><h1>'+C.names[a.type]+'</h1><span class="muted">'+({easy:'初级',medium:'中级',hard:'高级'})[a.difficulty]+' · '+a.players+' 人 · <span class="timer">'+C.fmtTime(a.elapsedMs)+'</span></span></div><div class="row"><button data-action="app-help">规则 / 帮助</button><button data-action="app-save" data-game="'+a.type+'">保存此游戏</button>'+(a.type!=='poker'?'<button class="danger" data-action="app-abandon">放弃本局</button>':'')+'</div></div>';
-    h+='<div class="game-surface game-'+a.type+'">'+C.Games[a.type].render(g,a.type==='poker'?{...ui,wallet:profile.wallet,rebuyAmount:rebuyAmount(g)}:ui)+'</div>';
-    if(a.type==='poker'&&g.betweenHands){const n=rebuyAmount(g);h+='<details id="poker-funding" class="panel poker-funding" '+(ui.bankOpen?'open':'')+'><summary>钱包 '+C.formatMoney(profile.wallet)+' · 未还欠款 '+C.formatMoney(profile.bank.outstanding)+' · 补买与银行</summary><p class="muted">补买从你的钱包扣除，只增加你的桌面筹码。通常补至初始买入 '+g.buyin+'；钱包不足时可用剩余余额补买。电脑仅在筹码归零后，下一手自动补买 '+g.buyin+'，不使用你的钱包。</p><div class="row"><button data-action="app-rebuy" '+(n<=0?'disabled':'')+'>用钱包补买 '+n+'（补后 '+(g.players[0].stack+n)+'）</button><label>银行金额 <input id="bank-amount" type="number" min="1" step="1" value="'+C.escape(ui.bankAmount??200)+'" aria-describedby="bank-error"></label><button data-action="app-borrow">借款</button><button data-action="app-repay">还款</button></div>'+bankFeedback('bank-error',ui.bankError)+'</details>'}
+    if(tour)h+='<div class="tournament-exit"><button class="danger" data-action="app-abandon">退出锦标赛…</button><small>可随时保存或换桌暂停</small></div>';
+    h+='<div class="game-surface game-'+a.type+'">'+C.Games[a.type].render(g,a.type==='poker'&&!tour?{...ui,wallet:profile.wallet,rebuyAmount:rebuyAmount(g)}:ui)+'</div>';
+    if(a.type==='poker'&&!tour&&g.betweenHands){const n=rebuyAmount(g);h+='<details id="poker-funding" class="panel poker-funding" '+(ui.bankOpen?'open':'')+'><summary>钱包 '+C.formatMoney(profile.wallet)+' · 未还欠款 '+C.formatMoney(profile.bank.outstanding)+' · 补买与银行</summary><p class="muted">补买从你的钱包扣除，只增加你的桌面筹码。通常补至初始买入 '+g.buyin+'；钱包不足时可用剩余余额补买。电脑仅在筹码归零后，下一手自动补买 '+g.buyin+'，不使用你的钱包。</p><div class="row"><button data-action="app-rebuy" '+(n<=0?'disabled':'')+'>用钱包补买 '+n+'（补后 '+(g.players[0].stack+n)+'）</button><label>银行金额 <input id="bank-amount" type="number" min="1" step="1" value="'+C.escape(ui.bankAmount??200)+'" aria-describedby="bank-error"></label><button data-action="app-borrow">借款</button><button data-action="app-repay">还款</button></div>'+bankFeedback('bank-error',ui.bankError)+'</details>'}
     if(a.paused&&screen==='game')h+='<div class="paused"><div class="panel"><span class="eyebrow">PAUSED</span><h1>游戏已暂停</h1>'+(error?'<div class="notice error" role="alert">'+C.escape(error)+'</div>':'')+'<p class="subtle">计时和电脑行动已停止，牌面暂时遮盖。</p><div class="actions"><button class="primary" data-action="app-resume">继续游戏</button><button data-action="app-home">返回首页</button><button data-action="app-save">保存存档</button></div></div></div>';
     return h;
   }
   function welcome(){return '<div class="setup"><div class="panel"><span class="eyebrow">FIRST VISIT</span><h1>欢迎来到桌边</h1><p class="subtle">选择一款桌游，和电脑开一局。进度会暂存在本浏览器，需要带走时可导出存档。</p><div class="actions"><button class="primary" data-action="app-create">开始选游戏</button><button data-action="app-load">加载已有存档</button></div><details class="welcome-funds"><summary>调整德州初始资金（可选）</summary><p class="muted">默认钱包和借款额度各为 2,000 枚虚拟筹码，仅用于德州。使用默认值即可开始。</p><div class="form-grid"><div class="field"><label for="initial-wallet">德州初始资金</label><input id="initial-wallet" type="number" min="40" step="1" value="2000"></div><div class="field"><label for="initial-limit">银行借款总额度</label><input id="initial-limit" type="number" min="0" step="1" value="2000"></div></div></details></div></div>'}
   function help(){
-    const k=profile.active.type,extra={
+    const k=profile.active.type,tour=k==='poker'&&isTournament(profile.active.game),extra={
       splendor:'<li>卡上的颜色 +1 是永久折扣，分数用于争取 15 分；两者分别计算。</li><li>金筹码可补任何颜色；购买预览会显示本次实际支付。</li><li>预留最多 3 张；拿取后超过 10 枚筹码要归还。贵族条件看永久折扣。</li>',
       scout:'<li>先比张数，更多张更强；相同张数时，同点数组合强于顺子，再比较最高数字。</li><li>例如当前单牌 7，可以表演单牌 8，或任何合法的两张组合。只有相邻手牌能一起表演。</li><li>招募可选舞台两端、数字朝向和插入位置，预览中的新牌就是最终加入的数字。</li><li>每轮得分 = 收牌 + 招募奖励 − 剩余手牌；触发本轮结束的表演者免扣手牌。双人还加剩余招募次数。</li>',
       athlete:'<li>冠军奖分依次 3、4、4、5；亚军 1、2、2、3。技能和星星格可获得额外分，同分共享名次。</li><li>摔倒后下次主移动先站起来，能力仍可发动。技能移动与传送不同，传送不触发越过或跟随。</li><li>狂野格停下才触发：摔倒、+1 分或按箭头移动。两人各选两位上场，按选角顺序行动。</li><li>正常／快速播放自动结算，逐步播放由你点击下一步。需要你选择技能时会停在按钮旁。</li>',
       flip7:'<li>数字 0 只有一张，1 有一张，2 有两张，依此到 12 有十二张，共 94 张牌。</li><li>分数 = 数字合计 × 倍率 + 加分牌 + 七张奖励 15。“×2”只翻倍数字分；特殊牌不计入七张。</li><li>冻结让目标立即收分；连翻三张必须连抽三张，其中冻结与再次连翻延后处理，爆牌或集齐七张则取消后续效果。</li><li>第二次机会抵消一次重复数字，随后轮到下一人。多余的机会牌交给仍在本轮且没有保护的玩家。</li><li>达到 200 分后最高分并列，全员加赛。仅在牌堆耗尽时重新洗入弃牌。</li>',
       poker:'<li>跟注显示本次要付的筹码；加注总额包含你在本轮已经下注的筹码。</li><li>牌型从强到弱：同花顺、四条、葫芦、同花、顺子、三条、两对、一对、高牌。A 可以组成 A、2、3、4、5 顺子。</li><li>同牌型比较点数，再比踢脚；摊牌页展示每人的最佳五张。</li><li>全下后只能争取自己参与的底池，边池会单独分配。离桌返还剩余桌面筹码。</li><li>桌面筹码用完可用钱包补买后继续；钱包不足以补满时，可用现有余额买入。补买不计作盈利。电脑筹码归零后，下一手自动补买初始金额；仍有筹码的电脑保留余额。</li>'
     };
-    return '<dialog id="game-help" aria-labelledby="help-title"><div class="row between"><h2 id="help-title">'+C.names[k]+' · 规则速查</h2><button data-action="app-close-help" aria-label="关闭规则">关闭</button></div><p>'+rules[k]+'</p><ul class="rule-list">'+extra[k]+'</ul><p class="action-hint">查看规则期间，计时和电脑行动暂停。关闭后继续。</p></dialog>';
+    if(tour)extra.poker='<li>跟注显示本次付出的筹码，加注输入本轮累计下注总额。摊牌使用两张底牌和五张公共牌组成最佳五张，边池分别结算。</li><li>你和电脑使用相同初始筹码，输光后永久淘汰；电脑不会自动补买，剩余筹码也不能兑换钱包资金。</li><li>按设定的手数升盲，下一手开始时生效；填 0 则固定盲注。庄位与盲注跳过已淘汰的座位，两人时庄位支付小盲。</li><li>名次按淘汰顺序决定。同手淘汰时，手牌开始时筹码更多者名次靠前，相同筹码共享名次。筹码排名只是当前进度。</li><li>淘汰后可自动或逐手观战；冠军产生后显示全场名次。提前退出会放弃本场，不计完成与胜利。</li>';
+    return '<dialog id="game-help" aria-labelledby="help-title"><div class="row between"><h2 id="help-title">'+C.names[k]+(tour?' · 锦标赛':'')+' · 规则速查</h2><button data-action="app-close-help" aria-label="关闭规则">关闭</button></div><p>'+(tour?tournamentRules:rules[k])+'</p><ul class="rule-list">'+extra[k]+'</ul><p class="action-hint">查看规则期间，计时和电脑行动暂停。关闭后继续。</p></dialog>';
   }
-  function results(){const r=lastResult;if(!r)return home();return '<div class="setup"><div class="panel"><span class="eyebrow">FINISHED</span><h1>'+C.names[r.type]+' · 本场结束</h1><p>你的排名：第 '+r.rank+' 名 · 有效时长 '+C.fmtTime(r.elapsedMs)+'</p><ol class="ranking">'+r.lines.map(x=>'<li>'+C.escape(x)+'</li>').join('')+'</ol>'+(r.unlocked.length?'<section class="new-achievements"><h2>本场新成就</h2>'+r.unlocked.map(id=>'<p>✓ '+achievements[id]+'</p>').join('')+'</section>':'')+'<div class="actions"><button class="primary" data-action="app-home">返回首页</button><button data-action="app-select" data-game="'+r.type+'">再玩一场</button></div></div></div>'}
+  function results(){const r=lastResult;if(!r)return home();const tour=r.mode==='tournament';return '<div class="setup"><div class="panel"><span class="eyebrow">FINISHED</span><h1>'+C.names[r.type]+' · '+(tour?'锦标赛结束':'本场结束')+'</h1>'+(tour?'<div class="notice">'+(r.rank===1?'你获得锦标赛冠军！':C.escape(r.champion)+'获得锦标赛冠军。')+' · 比赛筹码不进入钱包。</div>':'')+'<p>你的排名：第 '+r.rank+' 名 · 有效时长 '+C.fmtTime(r.elapsedMs)+'</p><ul class="ranking">'+r.lines.map(x=>'<li>'+C.escape(x)+'</li>').join('')+'</ul>'+(r.unlocked.length?'<section class="new-achievements"><h2>本场新成就</h2>'+r.unlocked.map(id=>'<p>✓ '+achievements[id]+'</p>').join('')+'</section>':'')+'<div class="actions"><button class="primary" data-action="app-home">返回首页</button><button data-action="app-select" data-game="'+r.type+'" '+(tour?'data-mode="tournament"':'')+'>再玩一场</button></div></div></div>'}
   function saveDialog(){
     const type=ui.save.type,file=C.SaveFiles.targetName(type),supported=C.SaveFiles.supported();
     return '<dialog id="save-dialog" aria-labelledby="save-title"><div class="row between"><h2 id="save-title">保存 · '+(C.names[type]||'全部存档')+'</h2><button data-action="app-close-save" '+(saveBusy?'disabled':'')+'>关闭</button></div><p>'+(type?'保存这一款的进度、统计与成就'+(type==='poker'?'，以及钱包和借款账目':'')+'。':'保存五款游戏的进度、统计、成就和资金账目。')+'</p><p class="save-target">当前文件：<strong>'+C.escape(file||'尚未选择')+'</strong></p><p class="muted">'+(supported?'首次选择文件；之后“覆盖保存”会更新同一个 JSON 文件。“另存为”可更换位置，“下载副本”可保留另一个版本。':'此浏览器支持下载副本。若要直接覆盖同一个 JSON 文件，请用 Chrome / Edge 打开本页面。')+'</p><div class="actions">'+(supported?'<button class="primary" data-action="app-save-write" '+(saveBusy?'disabled':'')+'>'+(saveBusy?'正在保存…':file?'覆盖保存':'选择文件并保存')+'</button><button data-action="app-save-as" '+(saveBusy?'disabled':'')+'>另存为…</button>':'')+'<button '+(!supported?'class="primary" ':'')+'data-action="app-save-copy" '+(saveBusy?'disabled':'')+'>下载副本</button></div><div class="field-error" role="alert">'+C.escape(ui.save.error||'')+'</div><p class="action-hint">保存窗口打开期间，计时和电脑行动暂停。</p></dialog>';
@@ -99,10 +108,10 @@
     const a=profile.active,g=a.game,k=a.type,rank=g.ranks[0],stats=profile.stats[k];
     stats.completed++;stats.rankSum+=rank;stats.activeMs+=a.elapsedMs;if(rank===1)stats.wins++;
     const unlocked=C.Achievements.check(profile,a);
-    const values=k==='splendor'?g.players.map(C.Games.splendor.points):['scout','athlete'].includes(k)?g.totals:k==='flip7'?g.players.map(p=>p.total):g.players.map(p=>p.stack-p.buyins);
-    const lines=g.ranks.map((r,i)=>({r,i,text:(i===0?'你':'电脑 '+i)+' · 第 '+r+' 名 · '+(k==='poker'?'本场净收益 '+values[i]:k==='splendor'?values[i]+' 分':values[i]+' 分')})).sort((a,b)=>a.r-b.r||a.i-b.i).map(x=>x.text);
-    lastResult={type:k,rank,elapsedMs:a.elapsedMs,lines,unlocked};
-    profile.history.unshift({date:new Date().toLocaleString('zh-CN'),type:k,rank,elapsedMs:a.elapsedMs});profile.history=profile.history.slice(0,50);
+    const tour=k==='poker'&&isTournament(g),values=k==='splendor'?g.players.map(C.Games.splendor.points):['scout','athlete'].includes(k)?g.totals:k==='flip7'?g.players.map(p=>p.total):g.players.map(p=>tour?p.stack:p.stack-p.buyins);
+    const lines=g.ranks.map((r,i)=>({r,i,text:(i===0?'你':'电脑 '+i)+' · '+(g.ranks.filter(x=>x===r).length>1?'并列':'')+'第 '+r+' 名 · '+(tour?'剩余比赛筹码 '+values[i]:k==='poker'?'本场净收益 '+values[i]:values[i]+' 分')})).sort((a,b)=>a.r-b.r||a.i-b.i).map(x=>x.text);
+    lastResult={type:k,mode:tour?'tournament':k==='poker'?'cash':undefined,rank,elapsedMs:a.elapsedMs,lines,unlocked,champion:tour?(g.ranks.indexOf(1)===0?'你':'电脑 '+g.ranks.indexOf(1)):null};
+    profile.history.unshift({date:new Date().toLocaleString('zh-CN'),type:k,...(k==='poker'?{mode:tour?'tournament':'cash'}:{}),...(tour?{players:a.players,difficulty:a.difficulty,buyin:g.buyin,peakStack:g.tournamentPeakStack||g.players[0].stack,lowStack:g.tournamentLowStack===true||g.players[0].handStartStack>0&&g.players[0].handStartStack<g.big*5}:{}),rank,elapsedMs:a.elapsedMs});profile.history=profile.history.slice(0,50);
     profile.active=null;screen='results';saveCache();
   }
   function scheduleBot(){
@@ -111,7 +120,13 @@
     const a=profile.active,g=a.game;
     if(g.finished){complete();render();return}
     if(a.type==='scout'&&(g.orientationPending||g.roundPending))return;
-    if(a.type==='poker'&&g.betweenHands)return;
+    if(a.type==='poker'&&g.betweenHands){
+      if(isTournament(g)&&g.players[0].eliminated&&g.autoWatch)autoTimer=setTimeout(()=>{
+        if(!profile||profile.active!==a||a.paused||screen!=='game'||ui.help||ui.save||ui.pickingFile)return;
+        try{C.Games.poker.act(g,'p-next',{});error='';saveCache();render()}catch(e){error='观战继续失败：'+e.message;a.paused=true;render()}
+      },1600);
+      return;
+    }
     if(g.roundPending)return;
     if(a.type==='athlete'&&g.speed==='step'&&g.phase!=='draft')return;
     if(g.current===0)return;
@@ -120,16 +135,17 @@
   function showNotice(message){notice=message;setTimeout(()=>{if(notice===message){notice='';const toast=document.querySelector('.app-toast');if(toast)toast.remove()}},6000)}
   function awardActiveAchievements(){if(profile.active&&!profile.active.game.finished){const added=C.Achievements.check(profile);if(added.length)showNotice('解锁成就：'+added.map(id=>C.Achievements.items.find(a=>a.id===id).title).join('、'))}}
   function readInt(id){const el=document.getElementById(id);return el?Number(el.value):NaN}
-  function rebuyAmount(g){return Math.min(profile.wallet,Math.max(0,g.buyin-g.players[0].stack))}
+  function rebuyAmount(g){return isTournament(g)?0:Math.min(profile.wallet,Math.max(0,g.buyin-g.players[0].stack))}
   function rebuy(nextHand){
     const a=profile.active;if(!a||a.type!=='poker'||a.paused||screen!=='game'||ui.help||!a.game.betweenHands)throw Error('只能在两手之间补买');
+    if(isTournament(a.game))throw Error('锦标赛不可补买');
     const g=a.game,p=g.players[0];if(p.stack>=g.buyin)throw Error('当前筹码无需补买');
     const n=rebuyAmount(g);if(n<=0)throw Error('钱包余额为 0，可打开银行借款，或离桌结算');
     profile.wallet-=n;p.stack+=n;p.buyins+=n;g.log.unshift('你用钱包补买 '+n+'，桌面筹码 '+p.stack+'。');g.log=g.log.slice(0,30);
     if(nextHand){C.Games.poker.act(g,'p-next',{});ui={};if(p.stack<g.big*5)g.hadLowStack=true}
   }
   function bankAction(action){
-    if(profile.games.poker&&!profile.games.poker.game.betweenHands)throw Error('请先完成正在进行的德州手牌，再操作银行');
+    if(profile.games.poker&&!isTournament(profile.games.poker.game)&&!profile.games.poker.game.betweenHands)throw Error('请先完成正在进行的德州手牌，再操作银行');
     const amount=readInt('bank-amount'),b=profile.bank;if(!Number.isSafeInteger(amount)||amount<1)throw Error('请输入正整数金额');
     if(action==='app-borrow'){if(b.outstanding+amount>b.limit)throw Error('借款超过总额度');profile.wallet+=amount;b.totalBorrowed+=amount;b.outstanding+=amount}
     else {if(amount>profile.wallet||amount>b.outstanding)throw Error('还款不能超过钱包余额或未还欠款');profile.wallet-=amount;b.totalRepaid+=amount;b.outstanding-=amount;if(b.outstanding===0)C.gainAchievement(profile,'debt_free')}
@@ -150,6 +166,7 @@
     if(action==='app-close-help'){ui.help=false;lastTick=Date.now();render();return}
     if(action==='app-funding'){
       const a=profile&&profile.active;if(!a||a.type!=='poker'||a.paused||screen!=='game'||ui.help||!a.game.betweenHands)throw Error('只能在两手之间操作银行');
+      if(isTournament(a.game))throw Error('锦标赛使用独立比赛筹码');
       ui.bankOpen=true;const panel=document.getElementById('poker-funding');if(panel){panel.open=true;if(panel.scrollIntoView)panel.scrollIntoView({block:'center'})}return;
     }
     if(['c-select-show','c-recruit-end','s-review','s-tier'].includes(action)){
@@ -162,25 +179,30 @@
     else if(action==='app-visual'){if(!profile)throw Error('请先创建档案');profile.visual=!profile.visual}
     else if(action==='app-reset'){if(hasGames())throw Error('请先结束所有对局');if(!window.confirm('重置会清除本浏览器的档案和统计。请先保存 JSON 存档。确定重置？'))return;profile=null;lastResult=null;screen='home';try{localStorage.removeItem(KEY)}catch(e){}render();return}
     else if(action==='app-home'){ui={};if(profile&&profile.active)profile.active.paused=true;screen='home'}
-    else if(action==='app-select'){ui={};if(!C.names[data.game])throw Error('游戏无效');pauseAll(profile);selected=data.game;if(profile.games[selected]){profile.activeType=selected;screen='game'}else screen='setup'}
+    else if(action==='app-select'){ui={};if(!C.names[data.game])throw Error('游戏无效');if(data.game==='poker'&&data.mode==='tournament')ui.pokerMode='tournament';pauseAll(profile);selected=data.game;if(profile.games[selected]){profile.activeType=selected;screen='game'}else screen='setup'}
+    else if(action==='app-poker-mode'){
+      if(screen!=='setup'||selected!=='poker'||!['cash','tournament'].includes(data.mode))throw Error('请选择德州玩法');
+      const fields={...(ui.setupFields||{})};for(const id of ['players','difficulty','small','big','buyin','blind-every']){const el=document.getElementById(id);if(el)fields[id]=el.value}
+      ui.setupFields=fields;ui.pokerMode=data.mode;
+    }
     else if(action==='app-start'){
       if(profile.games[selected])throw Error('此游戏已有进行中的对局，请先继续或结束');
       const players=readInt('players'),difficulty=document.getElementById('difficulty').value,k=selected;
       if(!Number.isInteger(players)||players<C.limits[k][0]||players>C.limits[k][1]||!['easy','medium','hard'].includes(difficulty))throw Error('人数或难度无效');
-      ui={};let settings={};if(k==='poker'){settings={small:readInt('small'),big:readInt('big'),buyin:readInt('buyin')};if(profile.wallet<settings.buyin)throw Error('钱包余额不足买入，可先向银行借款')}
+      let settings={};if(k==='poker'){settings={mode:ui.pokerMode||'cash',small:readInt('small'),big:readInt('big'),buyin:readInt('buyin')};if(settings.mode==='tournament')settings.blindEvery=readInt('blind-every');else if(profile.wallet<settings.buyin)throw Error('钱包余额不足买入，可先向银行借款')}
       if(k==='athlete')settings={draftMode:document.getElementById('draft-mode').value,trackMode:document.getElementById('track-mode').value};
-      settings.difficulty=difficulty;const g=C.Games[k].create(players,settings);if(k==='poker')profile.wallet-=settings.buyin;
+      settings.difficulty=difficulty;const g=C.Games[k].create(players,settings);if(k==='poker'&&!isTournament(g))profile.wallet-=settings.buyin;ui={};
       pauseAll(profile);profile.active={type:k,players,difficulty,elapsedMs:0,paused:false,game:g};profile.stats[k].started++;screen='game';lastTick=Date.now();
     }else if(action==='app-resume'){ui={};const k=data.game||profile.activeType;if(!C.names[k]||!profile.games[k])throw Error('没有待继续的对局');pauseAll(profile);profile.activeType=k;profile.active.paused=false;screen='game';lastTick=Date.now()}
     else if(action==='app-pause'){if(!profile.active)throw Error('没有进行中的对局');profile.active.paused=!profile.active.paused;lastTick=Date.now()}
-    else if(action==='app-abandon'){if(!profile.active||profile.active.type==='poker')throw Error('请在两手之间离桌结算');if(!window.confirm('放弃本局？本局不会计入完成场次。'))return;profile.stats[profile.active.type].activeMs+=profile.active.elapsedMs;profile.active=null;screen='home'}
+    else if(action==='app-abandon'){if(!profile.active||profile.active.type==='poker'&&!isTournament(profile.active.game))throw Error('请在两手之间离桌结算');if(!window.confirm(profile.active.type==='poker'?'退出锦标赛？本场不会计入完成或胜利，比赛筹码不进入钱包。':'放弃本局？本局不会计入完成场次。'))return;profile.stats[profile.active.type].activeMs+=profile.active.elapsedMs;profile.active=null;screen='home'}
     else if(action==='app-borrow'||action==='app-repay')bankAction(action)
-    else if(action==='app-bank-limit'){if(profile.games.poker&&!profile.games.poker.game.betweenHands)throw Error('请在两手之间修改额度');const n=readInt('bank-limit');if(!Number.isSafeInteger(n)||n<profile.bank.outstanding)throw Error('额度不能低于未还欠款');profile.bank.limit=n}
+    else if(action==='app-bank-limit'){if(profile.games.poker&&!isTournament(profile.games.poker.game)&&!profile.games.poker.game.betweenHands)throw Error('请在两手之间修改额度');const n=readInt('bank-limit');if(!Number.isSafeInteger(n)||n<profile.bank.outstanding)throw Error('额度不能低于未还欠款');profile.bank.limit=n}
     else if(action==='app-rebuy'||action==='app-rebuy-next')rebuy(action==='app-rebuy-next')
-    else if(action==='p-end'){const a=profile.active;if(!a||a.type!=='poker'||a.paused||screen!=='game')throw Error('无正在运行的德州牌桌');if(!a.game.betweenHands||a.game.handCount<1)throw Error('至少完成一手牌并在两手之间离桌');const p=a.game.players[0];if(!window.confirm('确认离桌结算？\n桌面筹码 '+p.stack+' 将返还钱包。\n本场净收益 '+(p.stack-p.buyins)+'，结算后此牌桌结束。'))return;C.Games.poker.endSession(a.game);profile.wallet+=p.stack;complete()}
+    else if(action==='p-end'){const a=profile.active;if(!a||a.type!=='poker'||a.paused||screen!=='game')throw Error('无正在运行的德州牌桌');if(isTournament(a.game))throw Error('锦标赛按淘汰名次结算，比赛筹码不能兑换');if(!a.game.betweenHands||a.game.handCount<1)throw Error('至少完成一手牌并在两手之间离桌');const p=a.game.players[0];if(!window.confirm('确认离桌结算？\n桌面筹码 '+p.stack+' 将返还钱包。\n本场净收益 '+(p.stack-p.buyins)+'，结算后此牌桌结束。'))return;C.Games.poker.endSession(a.game);profile.wallet+=p.stack;complete()}
     else if(action==='app-save'){exportSave(data.game);return}
     else if(action==='app-load'){importTarget=data.game||null;if(typeof window.showOpenFilePicker==='function'){openSaveFile();return}document.getElementById('import-file').click();return}
-    else {const a=profile.active;if(!a||a.paused||screen!=='game'||ui.help)throw Error('游戏未运行');const nextHand=a.type==='poker'&&action==='p-next'&&a.game.betweenHands;if(a.game.current!==0&&!nextHand&&!(a.type==='athlete'&&['a-speed','a-step'].includes(action))&&!(a.type==='scout'&&(a.game.orientationPending||a.game.roundPending)))throw Error('尚未轮到你');
+    else {const a=profile.active;if(!a||a.paused||screen!=='game'||ui.help)throw Error('游戏未运行');const nextHand=a.type==='poker'&&action==='p-next'&&a.game.betweenHands,watch=a.type==='poker'&&action==='p-watch'&&isTournament(a.game)&&a.game.players[0].eliminated;if(a.game.current!==0&&!nextHand&&!watch&&!(a.type==='athlete'&&['a-speed','a-step'].includes(action))&&!(a.type==='scout'&&(a.game.orientationPending||a.game.roundPending)))throw Error('尚未轮到你');
       if(action==='c-scout'){data.position=readInt('scout-position');data.flip=document.getElementById('scout-flip').value}
       if(action==='p-bet')data.amount=readInt('poker-amount');
       if(action==='a-step')data.difficulty=a.difficulty;

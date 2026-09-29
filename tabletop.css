@@ -407,3 +407,12 @@ button[aria-pressed=true]{border-color:var(--accent);box-shadow:inset 0 0 0 1px 
 .pot-total{display:flex;align-items:baseline;justify-content:center;gap:8px;margin:4px 0}
 .pot-total .pot-value{font-size:1.3rem;line-height:1.3}
 .poker-center .community-cards{margin:6px 0}
+.poker-mode-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 20px}
+.tournament-status{display:flex;align-items:center;gap:8px 18px;flex-wrap:wrap;background:var(--accent-soft);border-radius:10px;padding:10px 14px;margin-top:8px;font-size:.85rem}
+.tournament-status small{color:var(--muted);font-size:.75rem}
+.poker-seat.eliminated{background:#eeeee8;border-style:dashed;border-color:#c4c9bf}
+.poker-seat.eliminated .seat-action{color:var(--muted)}
+.tournament-exit{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 10px}
+.tournament-exit button{padding:5px 9px;font-size:.78rem}
+.tournament-exit small{color:var(--muted)}
+.achievement-section{margin:18px 0 6px;font-size:.9rem;color:var(--accent)}

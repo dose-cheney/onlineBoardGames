@@ -12,7 +12,7 @@ function harness(saved){
   context.window=context;vm.createContext(context);
   for(const file of ['core','achievements','splendor','scout','poker','athlete-data','athlete','flip7','save-files','app'])vm.runInContext(fs.readFileSync(__dirname+'/../js/'+file+'.js','utf8'),context,{filename:file+'.js'});
   return {C:context.GameCore,click(action,data={}){events.click({target:{closest(){return {dataset:{action,...data}}}}})},field(id,value){elements[id]={value:String(value)}},get(){return JSON.parse(raw)},html(){return elements.app.innerHTML},accept(v){accept=v},confirmations,downloads,
-    save(game){this.click('app-save',game?{game}:{});this.click('app-save-copy')},import(data,game){this.click('app-load',game?{game}:{});events['file-change']({target:{files:[{text:JSON.stringify(data)}]}})},tick(ms){clock+=ms;events.tick()},hide(){context.document.hidden=true;events.visibilitychange()},delays(){return [...delays.values()]}};
+    save(game){this.click('app-save',game?{game}:{});this.click('app-save-copy')},import(data,game){this.click('app-load',game?{game}:{});events['file-change']({target:{files:[{text:JSON.stringify(data)}]}})},tick(ms){clock+=ms;events.tick()},hide(){context.document.hidden=true;events.visibilitychange()},delays(){return [...delays.values()]},run(delay){const id=[...delays].find(([id,d])=>d===delay)?.[0];if(id===undefined)return false;const fn=timers.get(id);timers.delete(id);delays.delete(id);clock+=delay;fn();return true}};
 }
 const fixture=harness(),C=fixture.C;
 const poker=C.Games.poker.create(2,{buyin:200,small:1,big:2});
@@ -211,4 +211,79 @@ console.log('New game app checks passed: automatic turn controls, help guard, in
   const h=harness(p);h.click('app-resume');assert(h.delays().includes(1200),'normal playback leaves time to read each event');
   h.click('a-speed',{speed:'step'});assert(!h.delays().includes(1200));assert(!h.delays().includes(180),'step mode stops automatic playback');
   assert(h.html().includes('data-detail-id="athlete-record" open'));assert(h.html().includes('class="athlete-score-value"'));
+}
+
+{
+  const h=harness(C.createProfile(0));h.click('app-select',{game:'poker'});
+  h.field('players',9);h.field('difficulty','hard');h.field('small',5);h.field('big',10);h.field('buyin',500);
+  h.click('app-poker-mode',{mode:'tournament'});assert(h.html().includes('每人初始比赛筹码'));assert(h.html().includes('value="500"'));assert(!h.html().includes('银行借款'));
+  h.field('blind-every',5);h.click('app-start');const p=h.get(),g=p.games.poker.game;
+  assert.equal(g.mode,'tournament');assert.equal(g.buyin,500);assert.equal(g.big,10);assert.equal(g.blindEvery,5);assert.equal(p.wallet,0,'tournament can start with an empty wallet');
+  assert(h.html().includes('剩余 9 / 9 人'));assert(!h.html().includes('poker-funding'));
+  h.click('app-help');assert(h.html().includes('同手淘汰'));assert(!h.html().includes('下一手自动补买'));h.click('app-close-help');
+  h.save('poker');const file=JSON.parse(h.downloads.at(-1).data);assert.equal(file.session.game.mode,'tournament');
+  h.import(file,'poker');assert(h.get().games.poker.paused);assert.equal(h.get().wallet,0);h.click('app-resume');
+  h.click('p-end');assert.equal(h.get().wallet,0);assert(h.get().games.poker,'cannot cash out tournament chips');
+  h.click('app-abandon');assert.equal(h.get().games.poker,null);assert.equal(h.get().wallet,0);assert.equal(h.get().stats.poker.completed,0);
+}
+function tournamentProfile(n,heroWins){
+  const g=C.Games.poker.create(n,{mode:'tournament',buyin:200,small:1,big:2,blindEvery:10});
+  g.board=[2,17,32,47,9];g.street='river';
+  const holes=n===2?(heroWins?[[12,25],[0,14]]:[[0,14],[12,25]]):[[0,14],[1,15],[12,25],[10,23]];
+  g.players.forEach((p,i)=>{p.hole=holes[i];p.handStartStack=200;p.committed=n===4&&i===3?20:200;p.streetBet=p.committed;p.stack=200-p.committed;p.folded=false;p.allIn=p.stack===0;p.needs=false});
+  const used=g.board.concat(...holes);g.deck=Array.from({length:52},(_,i)=>i).filter(i=>!used.includes(i));C.Games.poker.settle(g);
+  const p=C.createProfile(75);p.active={type:'poker',players:n,difficulty:'medium',elapsedMs:100,paused:false,game:g};return p;
+}
+{
+  const h=harness(tournamentProfile(4));h.click('app-resume');assert(h.delays().includes(1600),'eliminated human can automatically watch the remaining match');
+  const before=h.get();h.click('app-rebuy-next');assert.deepEqual(h.get(),before,'wallet cannot fund tournament rebuys');
+  h.click('p-watch');assert.equal(h.get().games.poker.game.autoWatch,false);assert(!h.delays().includes(1600));
+  h.click('p-next');assert(!h.get().games.poker.game.betweenHands);assert(h.get().games.poker.game.players[0].eliminated);assert(h.delays().includes(650));
+  h.click('p-watch');assert(h.get().games.poker.game.autoWatch,'spectator controls work during a computer turn');
+  h.click('app-pause');assert(!h.delays().includes(650));h.click('app-resume');
+  h.click('app-help');assert(!h.delays().includes(650));h.click('app-close-help');assert(h.delays().includes(650));
+}
+{
+  const h=harness(tournamentProfile(4));h.click('app-resume');assert(h.run(1600));const g=h.get().games.poker.game;
+  assert(!g.betweenHands);assert.deepEqual(g.players.slice(0,2).map(p=>p.stack),[0,0],'automatic spectator continuation does not refill chips');assert.equal(h.get().wallet,75);
+}
+for(const heroWins of [true,false]){
+  const h=harness(tournamentProfile(2,heroWins));h.click('app-resume');const p=h.get();
+  assert.equal(p.games.poker,null);assert.equal(p.wallet,75,'tournament completion never credits chips to the wallet');
+  assert.equal(p.stats.poker.completed,1);assert.equal(p.stats.poker.wins,heroWins?1:0);assert.equal(p.history[0].mode,'tournament');assert.equal(p.history[0].rank,heroWins?1:2);
+  assert(h.html().includes(heroWins?'你获得锦标赛冠军':'电脑 1获得锦标赛冠军'));
+  assert(p.achievements.includes('tournament_finish'));assert.equal(p.achievements.includes('tournament_win'),heroWins);
+  assert.equal(p.history[0].players,2);assert.equal(p.history[0].difficulty,'medium');assert.equal(p.history[0].buyin,200);assert.equal(p.history[0].lowStack,false);
+  for(const id of ['poker_profit','poker_double','poker_comeback'])assert(!p.achievements.includes(id),'tournament chips do not award cash profit achievements');
+  h.click('app-select',{game:'poker',mode:'tournament'});assert(h.html().includes('开始锦标赛'),'replay retains the tournament mode');
+}
+console.log('Tournament app checks passed: setup, free entry, independent bankroll, saves, rejected rebuys/cashouts, spectator timers, pause/help, rankings, wins and mode-aware achievements.');
+
+{
+  const p=tournamentProfile(2,true),g=p.active.game;p.active.difficulty='hard';
+  g.finished=false;g.ranks=null;g.betweenHands=false;g.handCount=0;g.current=0;g.currentBet=200;
+  g.players.forEach((player,i)=>{player.eliminated=false;player.place=null;player.stack=i===0?1:0;player.committed=i===0?199:200;player.streetBet=player.committed;player.allIn=i===1;player.needs=i===0});
+  const h=harness(p);h.click('app-resume');h.click('p-call');const after=h.get();
+  for(const title of ['锦标赛初体验','最后的赢家','高手擂台'])assert(h.html().includes(title),'newly played tournament milestones appear on the result screen');
+  assert(h.html().includes('本场新成就'));assert.equal(after.history[0].difficulty,'hard');assert.equal(after.history[0].peakStack,400);
+}
+
+{
+  const g=C.Games.poker.create(4,{mode:'tournament',buyin:200,small:1,big:2});g.board=[2,17,32,47,9];g.street='river';g.current=0;g.currentBet=200;
+  const holes=[[12,25],[1,15],[0,14],[10,23]],commits=[199,200,200,20];
+  g.players.forEach((player,i)=>{player.hole=holes[i];player.committed=commits[i];player.streetBet=commits[i];player.stack=200-commits[i];player.folded=i===3;player.allIn=player.stack===0;player.needs=i===0});
+  const used=g.board.concat(...holes);g.deck=Array.from({length:52},(_,i)=>i).filter(i=>!used.includes(i));
+  const p=C.createProfile();p.active={type:'poker',players:4,difficulty:'hard',elapsedMs:100,paused:true,game:g};
+  const h=harness(p);h.click('app-resume');h.click('p-call');const after=h.get();
+  assert(after.games.poker);assert(after.achievements.includes('tournament_triple'));assert(h.html().includes('解锁成就：筹码登峰'),'a mid-match milestone gets immediate feedback');
+  assert.equal(after.games.poker.game.tournamentPeakStack,620);assert.equal(after.games.poker.game.tournamentLowStack,false);
+  h.save('poker');const file=JSON.parse(h.downloads.at(-1).data);h.import(file,'poker');assert.equal(h.get().games.poker.game.tournamentPeakStack,620);assert(h.get().achievements.includes('tournament_triple'));
+}
+
+{
+  const p=C.createProfile();p.history=[{type:'poker',mode:'tournament',rank:1,elapsedMs:100,date:'测试记录'}];
+  const h=harness(p);assert(h.get().achievements.includes('tournament_finish'));assert(h.get().achievements.includes('tournament_win'));
+  assert(h.html().includes('achievement-section">锦标赛'));assert(h.html().includes('现金桌与通用'));assert(h.html().includes('满桌称王'));
+  h.save();const backup=JSON.parse(h.downloads.at(-1).data);const restored=harness(backup);
+  assert.deepEqual(restored.get().achievements,backup.achievements,'new tournament achievements survive JSON and repeated historical checks');
 }
