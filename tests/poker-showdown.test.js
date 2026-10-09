@@ -31,6 +31,9 @@ for(const test of cases){const rank=P.evaluate(test.cards.map(([r,s])=>c(r,s)));
   P.settle(s);
   assert.deepEqual(P.showdown(s).map(h=>h.name),['同花','葫芦','两对','已弃牌']);
   assert.equal(s.players[1].stack,800,'full house beats flush and two pair');
+  assert.equal(s.handHistory[0].players[1].best.length,5,'the settled hand keeps its best five cards');
+  assert.equal(s.handHistory[0].players[3].hole,null,'folded computer cards remain hidden in history');
+  assert.equal(s.handHistory[0].awards[0].winners[0],1,'the pot distribution is retained');
   assert(s.log.some(t=>t.includes('你 — 同花 · A / K / J / 7 / 2')&&t.includes('电脑 1 — 葫芦')&&t.includes('电脑 3 — 已弃牌')));
   const html=P.render(s);assert(html.includes('本手牌力对照'));assert(html.includes('葫芦 · J 三条 + 9 对'));assert(!html.includes('8♣')&&!html.includes('4♠'),'folded opponent cards stay hidden');
   const renderedSeats=seats(html);assert.equal(renderedSeats.length,4);
@@ -56,5 +59,23 @@ for(const river of [false,true]){
   P.act(s,'p-fold',{});
   assert.deepEqual(P.showdown(s).map(h=>h.name),['已弃牌','未摊牌获胜']);
   assert(!P.render(s).includes('class="seat-hole-cards"'),'an uncontested win never reveals opponent hole cards, including on the river');
+}
+{
+  const s=P.create(2,{buyin:200,small:1,big:2});
+  for(let hand=1;hand<=35;hand++){
+    P.act(s,'p-fold',{});
+    assert.equal(s.handHistory.length,hand);
+    if(hand<35)P.act(s,'p-next',{});
+  }
+  assert.equal(s.log.length,30,'the short recent-action feed remains bounded');
+  assert(!s.log.some(line=>line.includes('第 1 手：')),'the old log has already dropped the first hand');
+  assert(s.handHistory[0].events.some(line=>line.includes('第 1 手：')),'per-hand actions remain available');
+  assert(s.handHistory[0].players[0].hole?.length===2,'the player can revisit their own cards');
+  assert.equal(s.handHistory[0].players[1].hole,null,'an unshown opponent hand stays private');
+  const html=P.render(s);
+  assert.equal((html.match(/class="poker-history-hand"/g)||[]).length,35);
+  assert(html.includes('本轮手牌历史 · 35 手可回看'));
+  assert(html.includes('data-detail-id="poker-hand-1"'));
+  assert(P.validate(JSON.parse(JSON.stringify(s)),2),'saved history restores with the current table');
 }
 console.log('Poker showdown checks passed: all hand types, kickers, payout comparison, board ties, saved hands, next hand, hidden cards.');

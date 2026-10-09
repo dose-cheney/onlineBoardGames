@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  const C=window.GameCore,D=C.AthleteData.racers,byId=Object.fromEntries(D.map(r=>[r.id,r])),label=i=>i===0?'你':'电脑 '+i;
+  const C=window.GameCore,D=C.AthleteData.racers,byId=Object.fromEntries(D.map(r=>[r.id,r])),label=i=>C.onlineLabels?.[i]||(i===0?'你':'电脑 '+i);
   const FINISH=30;
   // Coordinates are presentation only: positions are counted from Start toward the line.
   const wild={1:'star',5:'trip',7:3,11:1,13:'star',16:4,17:'trip',23:2,24:-2,26:'trip'};
@@ -36,7 +36,8 @@
   }
   function lineup(s){
     s.phase='lineup';s.roundPending=false;s.round++;s.current=0;s.chosen=Array.from({length:s.n},()=>[]);s.tasks=[];s.pending=null;
-    for(let i=1;i<s.n;i++)s.chosen[i]=(s.difficulty==='easy'?C.shuffle(s.teams[i]):s.teams[i].slice().sort((a,b)=>strength(a)-strength(b))).slice(0,s.n===2?2:1);
+    for(let i=0;i<s.n;i++)if(!s.online?s.current!==i:!s.humanSeats.includes(i))s.chosen[i]=(s.difficulty==='easy'?C.shuffle(s.teams[i]):s.teams[i].slice().sort((a,b)=>strength(a)-strength(b))).slice(0,s.n===2?2:1);
+    if(s.online)s.current=s.humanSeats[0];
     log(s,'第 '+s.round+' / 4 场，请选择上场选手'+(s.n===2?'，选择顺序也是队内行动顺序':'')+'。');
   }
   function strength(id){return ({legs:5,rocket:4.8,toad:4.7,scoocher:6,fish:4.6,blimp:4.3,alchemist:4.2,hare:4.3,coach:4.1,gunk:4,mouth:3.5,magician:4.5,sisyphus:3.5,egg:4.6,twin:4})[id]||3.6}
@@ -325,7 +326,7 @@
   function advance(s,difficulty=s.difficulty||'medium'){
     const before=s.eventCount;
     for(let count=0;count<500;count++){
-      if(s.finished||s.roundPending||['draft','lineup'].includes(s.phase)||(s.pending&&s.current===0))return;
+      if(s.finished||s.roundPending||['draft','lineup'].includes(s.phase)||(s.pending&&(s.online?s.humanSeats.includes(s.current):s.current===0)))return;
       if(s.pending)bot(s,difficulty);else step(s);
       if(s.eventCount!==before||s.pending||s.roundPending||s.finished)return;
     }
@@ -334,15 +335,19 @@
   function act(s,a,v={}){
     if(s.finished)throw Error('比赛已结束');
     if(a==='a-speed'){if(!['normal','fast','step'].includes(v.speed))throw Error('速度无效');s.speed=v.speed;return}
-    if(a==='a-step'){if(['draft','lineup'].includes(s.phase)||(s.pending&&s.current===0)||s.roundPending)throw Error('请先完成当前选项');advance(s,v.difficulty||s.difficulty);return}
+    if(a==='a-step'){if(['draft','lineup'].includes(s.phase)||(s.pending&&(s.online?s.humanSeats.includes(s.current):s.current===0))||s.roundPending)throw Error('请先完成当前选项');advance(s,v.difficulty||s.difficulty);return}
     if(s.phase==='draft'){
       if(a!=='a-draft'||!s.draftMarket.includes(v.id))throw Error('请选择可用选手');
       s.teams[s.current].push(v.id);s.draftMarket=s.draftMarket.filter(id=>id!==v.id);log(s,label(s.current)+'选中 '+card(v.id).name+'。');s.draftIndex++;
       if(s.draftIndex>=s.draftOrder.length){s.draftBatch++;if(s.draftBatch>=2)lineup(s);else draftBatch(s)}else s.current=s.draftOrder[s.draftIndex];return;
     }
     if(s.phase==='lineup'){
-      if(a!=='a-lineup'||!s.teams[0].includes(v.id)||s.chosen[0].includes(v.id))throw Error('请选择尚未上场的选手');
-      s.chosen[0].push(v.id);if(s.chosen[0].length===(s.n===2?2:1))launch(s);return;
+      const i=s.online?s.current:0;
+      if(a!=='a-lineup'||!s.teams[i].includes(v.id)||s.chosen[i].includes(v.id))throw Error('请选择尚未上场的选手');
+      s.chosen[i].push(v.id);if(s.chosen[i].length===(s.n===2?2:1)){
+        if(s.online){const next=s.humanSeats.find(j=>s.chosen[j].length<(s.n===2?2:1));if(next!==undefined){s.current=next;return}}
+        launch(s);
+      }return;
     }
     if(s.roundPending){if(a!=='a-next')throw Error('请先查看比赛结算');if(s.round===4){s.roundPending=false;s.finished=true;s.ranks=C.ranks(s.totals)}else lineup(s);return}
     if(s.pending){if(a!=='a-choice')throw Error('请先选择技能选项');const skipTask=s.pending.skipTask;choose(s,v.value);if(v.value==='skip'&&skipTask)queue(s,skipTask);return}
@@ -383,20 +388,21 @@
       return '<div class="race-space '+(pos===0?'start':pos===30?'finish':'')+'" style="grid-row:'+(row+1)+';grid-column:'+(col+1)+'"><span class="space-label">'+(pos===0?'起点 →':pos===30?'终点':pos+' '+(row%2?'←':'→'))+'</span>'+(effect?'<span class="space-effect">'+(effect==='trip'?'摔倒':effect==='star'?'+1 分':(effect>0?'+':'')+effect+' 格')+'</span>':'')+'<div class="space-racers">'+rs.map(({r,i})=>'<span class="race-token '+(r.tripped?'tripped':'')+' '+(s.lastEvent?.racer===i?'highlight':'')+'" style="--team:'+C.AthleteData.colors[r.owner]+'" data-name="'+card(r.id).name+'" title="'+label(r.owner)+' · '+card(r.id).name+(r.tripped?' · 已摔倒':'')+'">'+sprite(r.id)+'<small>'+label(r.owner)+'</small></span>').join('')+'</div></div>';
     }).join('')+'</div>';
   }
-  function playback(s){
-    const waiting=s.pending&&s.current===0,blocked=waiting||s.roundPending;
+  function playback(s,viewer=0){
+    const waiting=s.pending&&s.current===viewer,blocked=waiting||s.roundPending;
     return '<div class="race-playback-bar"><div class="race-speed"><span>播放速度</span>'+['normal','fast','step'].map((speed,i)=>'<button data-action="a-speed" data-speed="'+speed+'" class="'+(s.speed===speed?'primary':'')+'" title="'+['每条提示停留约 1.2 秒','每条提示停留约 0.18 秒','等待你点击下一步'][i]+'">'+['正常','快速','逐步'][i]+'</button>').join('')+'</div>'+(s.speed==='step'?'<button class="primary race-next-step" data-action="a-step" '+(blocked?'disabled':'')+'>播放下一步结算</button><small>'+(waiting?'请先在下方选择技能':s.roundPending?'请先查看本场结算':'每次点击推进一条提示或电脑行动')+'</small>':'<small>'+(s.speed==='normal'?'每条提示停留约 1.2 秒':'每条提示停留约 0.18 秒')+'</small>')+'</div>';
   }
   function render(s,ui={}){
+    const viewer=ui.viewer??0;
     let h='<div class="table-status"><strong>'+(s.phase==='draft'?'组建队伍':'第 '+s.round+' / 4 场 · '+(s.trackMode==='mild'||s.round%2?'温和赛道':'狂野赛道'))+'</strong><span>冠军 '+gold[Math.max(0,s.round-1)]+' 分 · 亚军 '+silver[Math.max(0,s.round-1)]+' 分</span></div>';
-    h+='<div class="athlete-scoreboard">'+s.totals.map((v,i)=>'<span style="--team:'+C.AthleteData.colors[i]+'"><strong>'+label(i)+'</strong><span class="athlete-score-value" aria-label="总分 '+v+' 分">'+v+' 分</span></span>').join('')+'</div>';
-    if(s.phase==='draft')return h+'<div class="turn-prompt '+(s.current===0?'your-turn':'')+'">'+(s.current===0?'轮到你选角：点击角色卡即可选入队伍。':label(s.current)+'正在选角…')+' · 第 '+(s.draftBatch+1)+' / 2 批</div><div class="athlete-cards">'+s.draftMarket.map(id=>racerCard(id,'a-draft',s.current!==0)).join('')+'</div><details class="table-details" open><summary>你的队伍 · '+s.teams[0].length+' 位</summary><div class="athlete-team-strip">'+s.teams[0].map(id=>'<span>'+sprite(id)+card(id).name+'</span>').join('')+'</div></details>';
-    if(s.phase==='lineup')return h+'<div class="turn-prompt your-turn">选择本场上场的 '+(s.n===2?'2 位选手（先点者先行动）':'1 位选手')+'。每个角色只能上场一次，后续比赛奖分更高。</div><div class="athlete-cards">'+s.teams[0].map(id=>racerCard(id,'a-lineup',s.chosen[0].includes(id),s.chosen[0].includes(id))).join('')+'</div>';
+    h+='<div class="athlete-scoreboard">'+s.totals.map((v,i)=>'<span style="--team:'+C.AthleteData.colors[i]+'"><strong>'+C.playerBadge(i,ui)+label(i)+'</strong><span class="athlete-score-value" aria-label="总分 '+v+' 分">'+v+' 分</span></span>').join('')+'</div>';
+    if(s.phase==='draft')return h+'<div class="turn-prompt '+(s.current===viewer?'your-turn':'')+'">'+(s.current===viewer?'轮到你选角：点击角色卡即可选入队伍。':label(s.current)+'正在选角…')+' · 第 '+(s.draftBatch+1)+' / 2 批</div><div class="athlete-cards">'+s.draftMarket.map(id=>racerCard(id,'a-draft',s.current!==viewer)).join('')+'</div><details class="table-details" open><summary>你的队伍 · '+s.teams[viewer].length+' 位</summary><div class="athlete-team-strip">'+s.teams[viewer].map(id=>'<span>'+sprite(id)+card(id).name+'</span>').join('')+'</div></details>';
+    if(s.phase==='lineup')return h+'<div class="turn-prompt '+(s.current===viewer?'your-turn':'')+'">选择本场上场的 '+(s.n===2?'2 位选手（先点者先行动）':'1 位选手')+'。每个角色只能上场一次，后续比赛奖分更高。</div><div class="athlete-cards">'+s.teams[viewer].map(id=>racerCard(id,'a-lineup',s.current!==viewer||s.chosen[viewer].includes(id),s.chosen[viewer].includes(id))).join('')+'</div>';
     let controls='';
     if(s.roundPending)controls='<section class="round-summary"><h2>第 '+s.round+' 场结算</h2><p>获奖选手：'+s.roundSummary.winners.map(C.escape).join('、')+'</p><div class="round-score-grid">'+s.roundSummary.rows.map(r=>'<article class="round-score"><strong>'+r.name+' · 本场 '+r.score+' 分</strong><span>累计 '+r.total+' 分</span></article>').join('')+'</div><button class="primary" data-action="a-next">'+(s.round===4?'查看最终成绩':'选择下一场选手')+'</button></section>';
-    else if(s.pending)controls='<div class="turn-prompt '+(s.current===0?'your-turn':'')+'">'+card(s.racers[s.pending.i].id).name+'：'+C.escape(s.pending.text)+'</div>'+(s.current===0?'<div class="actions">'+s.pending.options.map(o=>'<button data-action="a-choice" data-value="'+C.escape(o.value)+'">'+C.escape(o.label)+'</button>').join('')+'</div>':s.speed==='step'?'<p class="muted">'+label(s.current)+'待选择，点击上方下一步执行电脑行动。</p>':'<p class="muted">'+label(s.current)+'正在选择…</p>');
+    else if(s.pending)controls='<div class="turn-prompt '+(s.current===viewer?'your-turn':'')+'">'+card(s.racers[s.pending.i].id).name+'：'+C.escape(s.pending.text)+'</div>'+(s.current===viewer?'<div class="actions">'+s.pending.options.map(o=>'<button data-action="a-choice" data-value="'+C.escape(o.value)+'">'+C.escape(o.label)+'</button>').join('')+'</div>':s.speed==='step'?'<p class="muted">'+label(s.current)+'待选择，点击上方下一步执行电脑行动。</p>':'<p class="muted">'+label(s.current)+'正在选择…</p>');
     else controls='<div class="turn-prompt">'+(s.speed==='step'?'点击上方下一步，继续播放移动与技能。':'正在结算移动与技能，请跟随高亮角色查看过程。')+'</div>';
-    h+=playback(s)+'<div class="athlete-workspace"><section class="athlete-board">'+track(s)+'<div class="race-controls">'+(ui.error?'<p class="field-error" role="alert">'+C.escape(ui.error)+'</p>':'')+controls+'</div></section><aside class="race-sidebar"><div class="race-event" role="status">'+(s.lastEvent?.racer!==null&&s.lastEvent?.racer!==undefined?sprite(s.racers[s.lastEvent.racer].id):'')+'<span><small class="race-event-count">比赛动态 · 第 '+s.eventCount+' 条</small><strong>'+C.escape(s.lastEvent?.text||'准备比赛')+'</strong></span></div><div class="race-live-abilities">'+s.racers.map((r,i)=>'<details class="race-runner '+(r.owner===0?'mine':'')+'" '+(r.owner===0?'open':'')+'><summary>'+sprite(r.id)+'<span>'+card(r.id).name+' · '+label(r.owner)+'<small>'+(r.place?'第 '+r.place+' 名':r.eliminated?'已淘汰':r.pos+' 格'+(r.tripped?' · 摔倒':''))+'</small></span></summary><p>'+C.escape(card(r.ability||r.id).text)+'</p>'+(r.ability?'<small>复制能力：'+card(r.ability).name+'</small>':'')+'</details>').join('')+'</div></aside></div><details class="table-details game-record" data-detail-id="athlete-record" open><summary>最近比赛过程</summary><div class="log">'+s.log.map(t=>'<div>'+C.escape(t)+'</div>').join('')+'</div></details>';
+    h+=playback(s,viewer)+'<div class="athlete-workspace"><section class="athlete-board">'+track(s)+'<div class="race-controls">'+(ui.error?'<p class="field-error" role="alert">'+C.escape(ui.error)+'</p>':'')+controls+'</div></section><aside class="race-sidebar"><div class="race-event" role="status">'+(s.lastEvent?.racer!==null&&s.lastEvent?.racer!==undefined?sprite(s.racers[s.lastEvent.racer].id):'')+'<span><small class="race-event-count">比赛动态 · 第 '+s.eventCount+' 条</small><strong>'+C.escape(s.lastEvent?.text||'准备比赛')+'</strong></span></div><div class="race-live-abilities">'+s.racers.map((r,i)=>'<details class="race-runner '+(r.owner===viewer?'mine':'')+'" '+(r.owner===viewer?'open':'')+'><summary>'+sprite(r.id)+'<span>'+card(r.id).name+' · '+label(r.owner)+'<small>'+(r.place?'第 '+r.place+' 名':r.eliminated?'已淘汰':r.pos+' 格'+(r.tripped?' · 摔倒':''))+'</small></span></summary><p>'+C.escape(card(r.ability||r.id).text)+'</p>'+(r.ability?'<small>复制能力：'+card(r.ability).name+'</small>':'')+'</details>').join('')+'</div></aside></div><details class="table-details game-record" data-detail-id="athlete-record" open><summary>最近比赛过程</summary><div class="log">'+s.log.map(t=>'<div>'+C.escape(t)+'</div>').join('')+'</div></details>';
     return h;
   }
   C.Games.athlete={create,act,bot,validate,render,racers:D,ability,step,advance,movementEnd,wild,FINISH,gold,silver};

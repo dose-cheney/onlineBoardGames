@@ -1,0 +1,68 @@
+.online-shell { max-width: 1280px; }
+.online-landing { width: 100%; margin: 6vh 0; text-align: center; }
+.online-options { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 18px; margin: 28px 0; text-align: left; }
+.online-options a { color: inherit; text-decoration: none; transition: transform .15s ease, border-color .15s ease; }
+.online-options a:hover { transform: translateY(-3px); border-color: #be995e; }
+.faux-button { display: inline-block; padding: 10px 16px; border-radius: 10px; margin-top: 8px; }
+.online-grid { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(300px, 1.4fr); gap: 18px; align-items: start; }
+.online-room-card { margin: 12px 0; padding: 14px; border: 1px solid #c9bfae; border-radius: 12px; }
+.online-room-card p { margin: 6px 0; }
+.online-field { display: grid; gap: 5px; margin: 10px 0; }
+.online-field input, .online-field select { width: 100%; }
+.online-compact { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.online-compact input, .online-compact select { max-width: 170px; }
+.online-seat-list { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+.online-seat { position: relative; min-width: 125px; padding: 10px 14px; border-radius: 12px; background: rgba(255,255,255,.5); border: 1px solid #d6c8b0; }
+.online-seat.me { border-color: #a5712f; background: #fff6e6; }
+.online-seat .avatar { display: inline-grid; place-items: center; width: 28px; height: 28px; margin-right: 6px; border-radius: 50%; background: #82582d; color: #fff; font-weight: bold; }
+.online-seat small { display: block; }
+.online-emote-bubble { position: absolute; bottom: calc(100% + 5px); left: 10px; padding: 6px 9px; border-radius: 10px; background: #fff7dc; border: 1px solid #c9a668; box-shadow: 0 3px 8px #0002; white-space: nowrap; z-index: 4; }
+.online-game { margin-top: 16px; }
+.online-game .game-surface { margin-top: 12px; }
+.online-error { color: #962f27; min-height: 1.5em; }
+.online-request { padding: 10px; border: 1px solid #cfbea2; border-radius: 10px; margin: 8px 0; }
+.online-transfer { margin: 16px 0; padding: 14px; border: 1px solid #c9bfae; border-radius: 12px; }
+.online-status { padding: 10px 14px; border-radius: 9px; background: #efe8d9; }
+.online-disconnected { color: #ad3e2a; }
+.online-grid > *, .online-grid > div > .panel { min-width: 0; }
+.online-grid > .panel, .online-grid > div > .panel:first-child { margin-top: 0; }
+.online-playing { padding-bottom: 110px; }
+.online-playing .topbar { margin-bottom: 12px; }
+.online-room-header.is-playing { margin-top: 0; padding: 12px 16px; }
+.online-room-header.is-playing h1 { font-size: 1.2rem; margin: 0; }
+.online-room-header.is-playing .online-compact { margin-top: 0; }
+.online-room-status { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; margin-top: 8px; color: var(--muted); font-size: .82rem; }
+.online-room-details { margin-top: 6px; font-size: .8rem; }
+.online-room-details > summary { cursor: pointer; color: var(--accent); }
+.online-room-details[open] > summary { margin-bottom: 8px; }
+.online-room-details p { margin-bottom: 8px; }
+.online-player-badge { position: relative; display: inline-flex; vertical-align: middle; margin-right: 6px; font-weight: 700; }
+.online-avatar { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; color: white; background: var(--accent); font-size: .75rem; flex-shrink: 0; }
+.online-player-badge .online-emote-bubble { left: 0; bottom: calc(100% + 4px); font-size: .8rem; font-weight: 500; color: var(--ink); }
+.online-emote-bubble { pointer-events: none; }
+.online-emote-dock { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); width: min(1232px, calc(100% - 48px)); display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: 0 4px 24px #24352e20; z-index: 8; }
+.online-emote-dock > span { flex-shrink: 0; color: var(--muted); font-size: .8rem; }
+.online-emote-buttons { display: flex; gap: 6px; overflow-x: auto; min-width: 0; }
+.online-emote-buttons button { white-space: nowrap; font-size: .82rem; min-height: 38px; }
+.online-public-seats { display: grid; gap: 16px; padding-left: 20px; }
+.online-game .athlete-scoreboard strong { white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .online-game .athlete-scoreboard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .online-game .race-controls { bottom: 110px; }
+  .online-game .flip-scoreboard { order: 1; }
+  .online-game .flip-last-inline { order: 2; }
+  .online-game .flip-workspace { order: 3; }
+}
+@media (min-width: 861px) and (max-height: 850px) { .online-game .poker-arena { height: clamp(280px, 42vh, 360px); } }
+@media (max-width: 580px) {
+  .online-emote-dock { width: calc(100% - 24px); bottom: max(8px, env(safe-area-inset-bottom)); gap: 8px; padding: 8px; }
+  .online-emote-dock > span { display: none; }
+  .online-emote-buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; overflow: visible; }
+  .online-emote-buttons button { min-width: 0; padding: 6px; }
+  .online-playing { padding-bottom: calc(120px + env(safe-area-inset-bottom)); }
+  .online-room-header.is-playing { padding: 10px; }
+  .online-room-header.is-playing h1 { font-size: 1rem; }
+  .online-room-header.is-playing button { padding: 6px 8px; font-size: .8rem; }
+  .online-avatar { width: 20px; height: 20px; }
+}
+@media (max-width: 760px) { .online-options, .online-grid { grid-template-columns: 1fr; } }

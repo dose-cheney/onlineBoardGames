@@ -142,6 +142,28 @@
 .poker-recent{display:flex;align-items:center;gap:14px;margin:10px 0;padding:8px 12px;font-size:.72rem;border-radius:9px;background:#eceee7;color:var(--muted)}
 .poker-recent strong{font-size:.72rem;white-space:nowrap;color:var(--ink)}
 .poker-recent span{border-left:1px solid #cbd1c6;padding-left:12px;flex:1;overflow-wrap:anywhere}
+.poker-tabletop .game-record{margin-top:12px}
+.poker-tabletop .game-record>summary{cursor:pointer;font-weight:700}
+.poker-history-list{display:grid;gap:8px;margin-top:12px}
+.poker-history-hand{border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden}
+.poker-history-hand>summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap;cursor:pointer;padding:11px 13px;font-size:.82rem}
+.poker-history-hand>summary strong{color:var(--ink)}
+.poker-history-hand>summary span{color:var(--muted)}
+.poker-history-hand>summary .history-net{margin-left:auto;color:var(--ink);font-weight:700}
+.poker-history-body{border-top:1px solid var(--line);padding:12px 13px;font-size:.82rem}
+.poker-history-body>p{margin-bottom:12px}
+.history-board,.history-cards{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.history-board{margin-bottom:12px}
+.history-cards>span:first-child{color:var(--muted)}
+.poker-history-players{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px}
+.poker-history-player{display:grid;align-content:start;gap:7px;border:1px solid var(--line);border-radius:9px;padding:10px;min-width:0}
+.poker-history-player>small{color:var(--muted)}
+.poker-history-player .playing-card,.history-board .playing-card{min-width:34px;width:34px;height:44px;padding:3px;font-size:.9rem}
+.history-awards{display:flex;gap:5px 15px;flex-wrap:wrap;margin-top:12px;color:var(--muted)}
+.poker-history-actions{margin-top:12px}
+.poker-history-actions>summary{cursor:pointer}
+.poker-history-actions ol{margin:8px 0 0;padding-left:24px;max-height:280px;overflow:auto}
+.poker-history-actions li{padding:3px 0}
 .poker-funding{margin-top:10px;padding:10px 14px;font-size:.8rem}
 .poker-funding summary{cursor:pointer;color:var(--muted)}
 .poker-funding .row{margin-top:10px}

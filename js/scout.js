@@ -4,7 +4,7 @@
   const deck=[];for(let a=1;a<=10;a++)for(let b=a+1;b<=10;b++)deck.push({id:deck.length,a,b});
   const val=c=>{const d=deck[c.id];return c.flip?d.b:d.a};
   const other=c=>{const d=deck[c.id];return c.flip?d.a:d.b};
-  const label=i=>i===0?'你':'电脑 '+i;
+  const label=i=>C.onlineLabels?.[i]||(i===0?'你':'电脑 '+i);
   function allowedDeck(n){return deck.filter(c=>n===3?c.b!==10:n===2||n===4?!(c.a===9&&c.b===10):true).map(c=>c.id)}
   function combo(hand,start,end){
     if(start<0||end>=hand.length||start>end)return null;
@@ -30,6 +30,7 @@
     s.captured=Array(s.n).fill(0);s.tokens=Array(s.n).fill(0);s.scoutsLeft=Array(s.n).fill(3);s.comboUsed=Array(s.n).fill(false);
     if(s.firstPlayer===null)s.firstPlayer=s.hands.findIndex(h=>h.some(c=>c.id===0));
     s.active=[];s.activeRank=null;s.owner=-1;s.current=(s.firstPlayer+s.round)%s.n;s.scoutChain=0;s.pendingCombined=false;s.orientationPending=true;
+    if(s.online){s.turnStart=s.current;s.orientationConfirmed=Array.from({length:s.n},(_,i)=>!s.humanSeats.includes(i));s.current=s.orientationConfirmed.findIndex(x=>!x)}
     log(s,'第 '+(s.round+1)+' / '+s.n+' 轮，手牌已发放。');
   }
   function finishRound(s,exempt){
@@ -78,8 +79,12 @@
       return;
     }
     if(s.orientationPending){
-      if(a==='c-flip'){s.hands[0]=flipHand(s.hands[0]);return}
-      if(a==='c-confirm'){s.orientationPending=false;return}
+      const i=s.online?s.current:0;
+      if(a==='c-flip'){s.hands[i]=flipHand(s.hands[i]);return}
+      if(a==='c-confirm'){
+        if(s.online){s.orientationConfirmed[i]=true;const next=s.orientationConfirmed.findIndex(x=>!x);if(next>=0){s.current=next;return}s.current=s.turnStart}
+        s.orientationPending=false;return;
+      }
       throw Error('请先确认本轮手牌方向');
     }
     if(s.pendingCombined){
@@ -128,26 +133,26 @@
     return '<section class="round-summary"><h2>第 '+summary.round+' 轮结算</h2><p>'+C.escape(summary.reason)+'</p><div class="round-score-grid">'+summary.rows.map(r=>'<article class="round-score '+(r.name==='你'?'mine':'')+'"><strong>'+C.escape(r.name)+' · 本轮 '+(r.score>0?'+':'')+r.score+' 分</strong><span>收牌 '+r.captured+' + 招募奖励 '+r.tokens+' − 手牌扣分 '+r.penalty+(summary.rows.length===2?' + 剩余招募 '+r.remaining:'')+'</span>'+(r.exempt?'<small>本轮结束者免扣剩余手牌</small>':'')+'<b>累计 '+r.total+' 分</b></article>').join('')+'</div></section>';
   }
   function render(s,ui={}){
-    if(s.roundPending)return '<div class="scout-tabletop">'+summaryHtml(s.roundSummary)+'<div class="actions"><button class="primary" data-action="c-next-round">'+(s.round>=s.n?'查看最终排名':'开始第 '+(s.round+1)+' 轮')+'</button></div><p class="muted">查看结算后再继续，电脑不会自动开始下一轮。</p></div>';
-    const my=s.hands[0],turn=s.current===0&&!s.finished,shows=turn&&!s.orientationPending?legalShows(s,0):[];
+    if(s.roundPending)return '<div class="scout-tabletop"><div class="scout-score-strip">'+s.totals.map((v,i)=>'<section class="opponent-mat"><strong>'+C.playerBadge(i,ui)+label(i)+'</strong><b>'+v+' 分</b></section>').join('')+'</div>'+summaryHtml(s.roundSummary)+'<div class="actions"><button class="primary" data-action="c-next-round">'+(s.round>=s.n?'查看最终排名':'开始第 '+(s.round+1)+' 轮')+'</button></div><p class="muted">查看结算后再继续，电脑不会自动开始下一轮。</p></div>';
+    const viewer=ui.viewer??0,my=s.hands[viewer],turn=s.current===viewer&&!s.finished,shows=turn&&!s.orientationPending?legalShows(s,viewer):[];
     const chosen=shows.find(x=>ui.scoutShow&&x.start===ui.scoutShow.start&&x.end===ui.scoutShow.end);
-    let html='<div class="scout-tabletop"><div class="scout-score-strip">'+s.hands.map((h,i)=>'<section class="opponent-mat '+(i===s.current?'current':'')+'"><div class="row between"><strong>'+label(i)+'</strong><b>'+s.totals[i]+' 分</b></div><small>手牌 '+h.length+' · 收牌 '+s.captured[i]+' · 招募奖励 '+s.tokens[i]+'</small></section>').join('')+'</div><div class="table-status"><strong>第 '+(s.round+1)+' / '+s.n+' 轮 · '+(s.orientationPending?'选择方向':'轮到 '+label(s.current))+'</strong><span class="latest-action" aria-live="polite">'+C.escape(s.log[0])+'</span></div><div class="scout-stage"><div class="panel scout-performance"><h2>中央舞台</h2>';
+    let html='<div class="scout-tabletop"><div class="scout-score-strip">'+s.hands.map((h,i)=>'<section class="opponent-mat '+(i===s.current?'current':'')+'"><div class="row between"><strong>'+C.playerBadge(i,ui)+label(i)+'</strong><b>'+s.totals[i]+' 分</b></div><small>手牌 '+h.length+' · 收牌 '+s.captured[i]+' · 招募奖励 '+s.tokens[i]+'</small></section>').join('')+'</div><div class="table-status"><strong>第 '+(s.round+1)+' / '+s.n+' 轮 · '+(s.orientationPending?'选择方向':'轮到 '+label(s.current))+'</strong><span class="latest-action" aria-live="polite">'+C.escape(s.log[0])+'</span></div><div class="scout-stage"><div class="panel scout-performance"><h2>中央舞台</h2>';
     html+='<div class="section-title">当前表演'+(s.activeRank?' · '+s.activeRank.length+' 张'+(s.activeRank.kind?'同点数组合':'顺子'):'')+'</div><div class="hand">'+(s.active.length?s.active.map(c=>'<div class="card hand-card"><strong>'+val(c)+'</strong><div class="small">另一面 '+other(c)+'</div></div>').join(''):'<span class="muted">等待第一场表演</span>')+'</div>';
     if(s.owner>=0)html+='<p class="muted">表演者：'+label(s.owner)+' · 已连续招募 '+s.scoutChain+' 人</p>';
     html+='</div><div class="panel scout-player"><div class="row between"><h2>你的手牌</h2><span class="muted">按序号连续，换行不改变顺序</span></div><div class="hand scout-hand">'+my.map((c,i)=>'<div class="card hand-card '+(chosen&&i>=chosen.start&&i<=chosen.end?'selected':'')+'"><small>第 '+(i+1)+' 张</small><strong>'+val(c)+'</strong><div class="small">另一面 '+other(c)+'</div></div>').join('')+'</div>';
     if(ui.error)html+='<div class="notice error" role="alert">'+C.escape(ui.error)+'</div>';
-    if(s.orientationPending)html+='<div class="notice">发牌时每张牌的数字朝向随机。拿到手牌后不能单张调整，可将整手牌翻面并反转顺序，对比两个方向后确认。</div><div class="actions"><button data-action="c-flip">整手翻面</button><button class="primary" data-action="c-confirm">确认手牌方向</button></div>';
+    if(s.orientationPending)html+='<div class="notice">发牌时每张牌的数字朝向随机。拿到手牌后不能单张调整，可将整手牌翻面并反转顺序，对比两个方向后确认。</div>'+(turn?'<div class="actions"><button data-action="c-flip">整手翻面</button><button class="primary" data-action="c-confirm">确认手牌方向</button></div>':'<p class="muted">等待 '+label(s.current)+' 确认手牌。</p>');
     else if(turn){
       if(s.pendingCombined)html+='<div class="notice">可使用本轮一次的「招募后表演」，也可结束回合。</div>';
       html+='<div class="section-title">合法表演 · 选择组合'+(s.pendingCombined?'（使用组合行动）':'')+'</div><p class="action-hint">先选择组合，对应手牌会高亮；确认后才出牌。</p><div class="actions scout-shows">'+shows.map(x=>'<button class="'+(chosen===x?'primary':'')+'" data-action="c-select-show" data-start="'+x.start+'" data-end="'+x.end+'" aria-pressed="'+(chosen===x)+'">第 '+(x.start+1)+(x.end===x.start?'':'–'+(x.end+1))+' 张：'+x.rank.nums.join('·')+'</button>').join('')+'</div>';
       if(chosen)html+='<div class="action-preview" aria-live="polite"><strong>将表演 '+chosen.rank.length+' 张'+(chosen.rank.kind&&chosen.rank.length>1?'同点数组合':chosen.rank.length>1?'顺子':'单牌')+'：'+chosen.rank.nums.join('、')+'</strong><button class="primary" data-action="c-show" data-start="'+chosen.start+'" data-end="'+chosen.end+'">表演这 '+chosen.rank.length+' 张</button></div>';
       if(!shows.length)html+='<p class="muted">没有可以压过当前表演的连续组合。'+(s.active.length?'可以招募舞台两端的一张牌。':'')+'</p>';
       if(s.pendingCombined)html+='<div class="actions"><button data-action="c-endturn">结束回合</button></div>';
-      else if(s.active.length&&(s.n!==2||s.scoutsLeft[0]>0)){
+      else if(s.active.length&&(s.n!==2||s.scoutsLeft[viewer]>0)){
         const end=ui.scoutEnd==='right'?'right':'left',picked=end==='left'?s.active[0]:s.active[s.active.length-1],flip=typeof ui.scoutFlip==='boolean'?ui.scoutFlip:picked.flip,pos=Math.max(0,Math.min(my.length,ui.scoutPosition||0)),number=val({id:picked.id,flip}),position=pos===0?'最左':pos===my.length?'最右':'第 '+pos+' 张后';
         const preview=my.slice();preview.splice(pos,0,{id:picked.id,flip});
         html+='<div class="section-title">招募预览</div><div class="actions"><button data-action="c-recruit-end" data-end="left" aria-pressed="'+(end==='left')+'">左端 '+val(s.active[0])+' / '+other(s.active[0])+'</button><button data-action="c-recruit-end" data-end="right" aria-pressed="'+(end==='right')+'">右端 '+val(s.active[s.active.length-1])+' / '+other(s.active[s.active.length-1])+'</button></div><div class="row recruit-settings"><label>插入位置 <select id="scout-position">'+Array.from({length:my.length+1},(_,i)=>'<option value="'+i+'" '+(i===pos?'selected':'')+'>'+(i===0?'最左':i===my.length?'最右':'第 '+i+' 张后')+'</option>').join('')+'</select></label><label>数字朝向 <select id="scout-flip"><option value="false" '+(!flip?'selected':'')+'>以 '+deck[picked.id].a+' 朝上</option><option value="true" '+(flip?'selected':'')+'>以 '+deck[picked.id].b+' 朝上</option></select></label></div><div class="scout-insertion" aria-label="招募后的手牌预览">'+preview.map((c,i)=>'<span class="'+(i===pos?'inserted':'')+'">'+val(c)+(i===pos?'<small>新牌</small>':'')+'</span>').join('')+'</div><div class="actions"><button class="primary" data-action="c-scout" data-end="'+end+'">招募 '+number+' · 插入'+position+'</button></div>';
-        if(s.n===2)html+='<p class="muted">双人本轮尚可招募 '+s.scoutsLeft[0]+' 次；招募后仍由你行动。</p>';
+        if(s.n===2)html+='<p class="muted">双人本轮尚可招募 '+s.scoutsLeft[viewer]+' 次；招募后仍由你行动。</p>';
       }else if(s.n===2&&!shows.length)html+='<div class="actions"><button data-action="c-forfeit">本轮结算</button></div>';
     }
     if(!turn&&!s.orientationPending)html+='<div class="turn-prompt">轮到 '+label(s.current)+'，请稍候。</div>';

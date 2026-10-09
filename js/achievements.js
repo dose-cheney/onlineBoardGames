@@ -59,7 +59,7 @@
     };
     p.history.filter(r=>r.type==='poker'&&r.mode==='tournament').forEach(tournamentResult);
     if(!session)return added;
-    const g=session.game,finished=g.finished===true,win=finished&&g.ranks&&g.ranks[0]===1;
+    const g=session.game,finished=g.finished===true||session.completedWithRank===true,win=finished&&g.ranks&&g.ranks[0]===1;
     grant('discreet',finished&&!p.visual);
     if(session.type==='splendor'){
       const me=g.players[0];grant('splendor_clean',win&&g.reserveCount===0);
@@ -83,7 +83,7 @@
       if(!cash){
         const peakStack=Math.max(g.tournamentPeakStack||g.buyin,g.betweenHands?me.stack:me.handStartStack||g.buyin);
         grant('tournament_triple',g.handCount>0&&peakStack>=g.buyin*3);
-        if(finished)tournamentResult({rank:g.ranks[0],players:g.n,difficulty:session.difficulty,buyin:g.buyin,peakStack,lowStack:g.tournamentLowStack===true||me.handStartStack>0&&me.handStartStack<g.big*5});
+        if(finished)tournamentResult({rank:g.ranks?g.ranks[0]:me.place,players:g.n,difficulty:session.difficulty,buyin:g.buyin,peakStack,lowStack:g.tournamentLowStack===true||me.handStartStack>0&&me.handStartStack<g.big*5});
       }
     }
     return added;

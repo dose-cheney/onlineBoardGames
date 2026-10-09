@@ -11,6 +11,12 @@
   const sum=a=>a.reduce((x,y)=>x+y,0);
   const fmtTime=ms=>{const s=Math.floor(ms/1000);return `${Math.floor(s/3600).toString().padStart(2,'0')}:${Math.floor(s%3600/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`};
   const formatMoney=n=>Number(n).toLocaleString('zh-CN');
+  function playerBadge(i,ui={}){
+    const seat=ui.onlineSeats?.[i];
+    if(!seat)return '';
+    const emote=ui.onlineEmotes?.find(x=>x.id===seat.id);
+    return '<span class="online-player-badge" data-player-seat="'+i+'"><span class="online-avatar" aria-hidden="true">'+escape((seat.nick||'?').slice(0,1))+'</span>'+(emote?'<span class="online-emote-bubble" role="status">'+escape(emote.phrase)+'</span>':'')+'</span>';
+  }
   function attachSlots(p){
     if(p.version===1){const old=p.active;delete p.active;p.games={splendor:null,scout:null,poker:null};p.activeType=old?old.type:null;if(old)p.games[old.type]=old;p.version=2}
     for(const k of Object.keys(names)){if(!Object.hasOwn(p.games,k))p.games[k]=null;if(!Object.hasOwn(p.stats,k))p.stats[k]=emptyStats()}
@@ -32,5 +38,5 @@
   }
   function ranks(values,secondary){return values.map((v,i)=>1+values.reduce((n,o,j)=>n+(j!==i&&(o>v||(o===v&&secondary&&secondary[j]<secondary[i]))?1:0),0))}
   function gainAchievement(p,id){if(!p.achievements.includes(id))p.achievements.push(id)}
-  window.GameCore={Games,names,limits,escape,shuffle,clamp,sum,fmtTime,formatMoney,createProfile,attachSlots,validProfile,ranks,gainAchievement};
+  window.GameCore={Games,names,limits,escape,shuffle,clamp,sum,fmtTime,formatMoney,playerBadge,createProfile,attachSlots,validProfile,ranks,gainAchievement};
 })();

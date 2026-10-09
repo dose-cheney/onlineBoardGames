@@ -32,11 +32,13 @@ delete old.games;delete old.activeType;
 }
 {
   const h=harness(old);h.click('app-resume');const before=h.get();
+  assert.equal(before.games.poker.game.handHistory.length,1,'current table retains the completed hand');
   h.accept(false);h.click('p-end');
   assert.deepEqual(h.get(),before,'cancel cashout preserves the entire profile');
   assert(h.confirmations[0].includes('确认离桌结算'));
   h.accept(true);h.click('p-end');
   const after=h.get();assert.equal(after.wallet,before.wallet+before.games.poker.game.players[0].stack);assert.equal(after.games.poker,null);assert.equal(after.stats.poker.completed,1);
+  assert(!JSON.stringify(after).includes('handHistory'),'cashout clears per-hand history from the profile');
   h.click('p-end');assert.equal(h.get().wallet,after.wallet,'cannot cash out twice');
 }
 {
@@ -247,6 +249,25 @@ function tournamentProfile(n,heroWins){
   const h=harness(tournamentProfile(4));h.click('app-resume');assert(h.run(1600));const g=h.get().games.poker.game;
   assert(!g.betweenHands);assert.deepEqual(g.players.slice(0,2).map(p=>p.stack),[0,0],'automatic spectator continuation does not refill chips');assert.equal(h.get().wallet,75);
 }
+{
+  const p=tournamentProfile(4),place=p.active.game.players[0].place;
+  p.visual=false;
+  const h=harness(p);h.click('app-resume');
+  assert(h.html().includes('按第 '+place+' 名结算离桌'));
+  const before=h.get();h.accept(false);h.click('app-abandon');assert.deepEqual(h.get(),before,'cancel keeps a ranked tournament active');
+  h.accept(true);h.click('app-abandon');const after=h.get();
+  assert.equal(after.games.poker,null);assert.equal(after.stats.poker.completed,1);assert.equal(after.stats.poker.rankSum,place);assert.equal(after.stats.poker.wins,0);
+  assert.equal(after.history[0].rank,place);assert.equal(after.history[0].earlyExit,true);assert.equal(after.history[0].elapsedMs,100);assert.equal(after.wallet,75);
+  assert(after.achievements.includes('tournament_finish'));assert(after.achievements.includes('discreet'));
+  assert(h.html().includes('冠军尚未产生')||h.html().includes('尚未决出冠军'));
+  assert(!h.html().includes('获得锦标赛冠军'));
+  h.click('app-abandon');assert.equal(h.get().stats.poker.completed,1,'a settled result is counted only once');
+}
+{
+  const h=harness(tournamentProfile(4));h.click('app-resume');h.click('p-watch');h.click('p-next');
+  assert(!h.get().games.poker.game.betweenHands,'computer hand is still running');
+  h.click('app-abandon');assert.equal(h.get().stats.poker.completed,1,'the fixed human place can be settled during computer play');
+}
 for(const heroWins of [true,false]){
   const h=harness(tournamentProfile(2,heroWins));h.click('app-resume');const p=h.get();
   assert.equal(p.games.poker,null);assert.equal(p.wallet,75,'tournament completion never credits chips to the wallet');
@@ -260,8 +281,30 @@ for(const heroWins of [true,false]){
 console.log('Tournament app checks passed: setup, free entry, independent bankroll, saves, rejected rebuys/cashouts, spectator timers, pause/help, rankings, wins and mode-aware achievements.');
 
 {
+  const h=harness(C.createProfile(75));h.click('app-select',{game:'poker'});
+  h.field('players',5);h.field('difficulty','hard');h.field('small',1);h.field('big',2);h.field('buyin',500);
+  h.click('app-start');
+  assert(h.html().includes('钱包余额不足买入'));
+  assert(h.html().includes('id="buyin" type="number" min="40" value="500"'),'a rejected start retains the entered amount so the player can correct it');
+  assert(h.html().includes('value="5" selected>5 人'),'other room settings survive the error');
+  assert(h.html().includes('value="hard" selected>高级'));
+  assert.equal(h.get().wallet,75);assert.equal(h.get().games.poker,null,'a rejected start must not create or fund a table');
+  h.field('buyin',60);h.click('app-start');
+  assert.equal(h.get().wallet,15);assert.equal(h.get().games.poker.game.buyin,60);
+}
+console.log('New player setup checks passed: failed starts preserve editable settings and do not charge the wallet.');
+
+{
+  const p=C.createProfile(),g=C.Games.flip7.create(3);p.stats.flip7.started=1;
+  p.active={type:'flip7',players:3,difficulty:'easy',elapsedMs:65000,paused:true,game:g};
+  const h=harness(p);
+  assert(h.html().includes('<strong>00:01:05</strong><span>有效游玩时长</span>'),'home includes time already played in unfinished saved games');
+  assert.equal(h.get().stats.flip7.activeMs,0,'displaying unfinished time does not commit it twice to completed statistics');
+}
+
+{
   const p=tournamentProfile(2,true),g=p.active.game;p.active.difficulty='hard';
-  g.finished=false;g.ranks=null;g.betweenHands=false;g.handCount=0;g.current=0;g.currentBet=200;
+  g.finished=false;g.ranks=null;g.betweenHands=false;g.handCount=0;g.handHistory=[];g.handLog=[];g.current=0;g.currentBet=200;
   g.players.forEach((player,i)=>{player.eliminated=false;player.place=null;player.stack=i===0?1:0;player.committed=i===0?199:200;player.streetBet=player.committed;player.allIn=i===1;player.needs=i===0});
   const h=harness(p);h.click('app-resume');h.click('p-call');const after=h.get();
   for(const title of ['锦标赛初体验','最后的赢家','高手擂台'])assert(h.html().includes(title),'newly played tournament milestones appear on the result screen');
