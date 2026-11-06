@@ -10,7 +10,7 @@ function harness(saved){
     Blob:class{constructor(parts){context.blob=parts.join('')}},URL:{createObjectURL(){return 'blob:test'},revokeObjectURL(){}},
     FileReader:class{readAsText(file){this.result=file.text;this.onload()}},confirm(message){confirmations.push(message);return accept},addEventListener(){}};
   context.window=context;vm.createContext(context);
-  for(const file of ['core','achievements','splendor','scout','poker','athlete-data','athlete','flip7','save-files','app'])vm.runInContext(fs.readFileSync(__dirname+'/../js/'+file+'.js','utf8'),context,{filename:file+'.js'});
+  for(const file of ['core','achievements','splendor','scout','poker','athlete-data','athlete','flip7','mahjong','save-files','app'])vm.runInContext(fs.readFileSync(__dirname+'/../js/'+file+'.js','utf8'),context,{filename:file+'.js'});
   return {C:context.GameCore,click(action,data={}){events.click({target:{closest(){return {dataset:{action,...data}}}}})},field(id,value){elements[id]={value:String(value)}},get(){return JSON.parse(raw)},html(){return elements.app.innerHTML},accept(v){accept=v},confirmations,downloads,
     save(game){this.click('app-save',game?{game}:{});this.click('app-save-copy')},import(data,game){this.click('app-load',game?{game}:{});events['file-change']({target:{files:[{text:JSON.stringify(data)}]}})},tick(ms){clock+=ms;events.tick()},hide(){context.document.hidden=true;events.visibilitychange()},delays(){return [...delays.values()]},run(delay){const id=[...delays].find(([id,d])=>d===delay)?.[0];if(id===undefined)return false;const fn=timers.get(id);timers.delete(id);delays.delete(id);clock+=delay;fn();return true}};
 }

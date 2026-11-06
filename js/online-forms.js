@@ -30,7 +30,7 @@
     if (validity.valueMissing || (field.required && !field.value.trim())) return `请填写${name}`;
     if (validity.rangeUnderflow) return `${name}不能小于 ${field.min}`;
     if (validity.rangeOverflow) return `${name}不能大于 ${field.max}`;
-    if (validity.stepMismatch) return `${name}请输入整数`;
+    if (validity.stepMismatch) return field.name.startsWith('mj-price-') ? `${name}最多保留两位小数` : `${name}请输入整数`;
     if (validity.tooShort || (field.value && field.minLength > 0 && field.value.length < field.minLength)) return `${name}至少需要 ${field.minLength} 个字符`;
     if (validity.tooLong || (field.maxLength >= 0 && field.value.length > field.maxLength)) return `${name}最多允许 ${field.maxLength} 个字符`;
     if (!validity.valid) return `请检查${name}的格式`;

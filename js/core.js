@@ -1,8 +1,8 @@
 (function(){
   'use strict';
   const Games=window.Games=window.Games||{};
-  const names={splendor:'璀璨宝石',scout:'马戏星探',poker:'德州扑克',athlete:'胡闹运动会',flip7:'Flip 7'};
-  const limits={splendor:[2,4],scout:[2,5],poker:[2,10],athlete:[2,6],flip7:[3,6]};
+  const names={splendor:'璀璨宝石',scout:'马戏星探',poker:'德州扑克',athlete:'胡闹运动会',flip7:'Flip 7',mahjong:'武穴麻将'};
+  const limits={splendor:[2,4],scout:[2,5],poker:[2,10],athlete:[2,6],flip7:[3,6],mahjong:[4,4]};
   const legacyTypes=['splendor','scout','poker'];
   const emptyStats=()=>({started:0,completed:0,wins:0,activeMs:0,rankSum:0});
   const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -28,7 +28,7 @@
   function createProfile(start=2000,limit=2000){return attachSlots({version:3,createdAt:new Date().toISOString(),visual:true,wallet:start,bank:{limit,totalBorrowed:0,totalRepaid:0,outstanding:0},stats:Object.fromEntries(Object.keys(names).map(k=>[k,emptyStats()])),achievements:[],history:[],games:Object.fromEntries(Object.keys(names).map(k=>[k,null])),activeType:null})}
   function validProfile(p){
     if(!p||![1,2,3].includes(p.version)||!Number.isSafeInteger(p.wallet)||p.wallet<0||!p.bank||!['limit','totalBorrowed','totalRepaid','outstanding'].every(k=>Number.isSafeInteger(p.bank[k])&&p.bank[k]>=0)||p.bank.totalBorrowed-p.bank.totalRepaid!==p.bank.outstanding||p.bank.limit<p.bank.outstanding)return false;
-    const required=p.version<3?legacyTypes:Object.keys(names),present=Object.keys(names).filter(k=>p.stats&&Object.hasOwn(p.stats,k));
+    const required=p.version<3?legacyTypes:['splendor','scout','poker','athlete','flip7'],present=Object.keys(names).filter(k=>p.stats&&Object.hasOwn(p.stats,k));
     if(!p.stats||!required.every(k=>Object.hasOwn(p.stats,k))||!present.every(k=>{const s=p.stats[k];return s&&['started','completed','wins','activeMs','rankSum'].every(f=>Number.isFinite(s[f])&&s[f]>=0)}))return false;
     if(!Array.isArray(p.history)||!Array.isArray(p.achievements))return false;
     const validSlot=(a,k)=>a===null||(a&&a.type===k&&Object.hasOwn(names,a.type)&&a.game&&Number.isInteger(a.players)&&a.players>=limits[a.type][0]&&a.players<=limits[a.type][1]&&['easy','medium','hard'].includes(a.difficulty)&&Number.isFinite(a.elapsedMs)&&a.elapsedMs>=0&&typeof a.paused==='boolean');
@@ -38,5 +38,5 @@
   }
   function ranks(values,secondary){return values.map((v,i)=>1+values.reduce((n,o,j)=>n+(j!==i&&(o>v||(o===v&&secondary&&secondary[j]<secondary[i]))?1:0),0))}
   function gainAchievement(p,id){if(!p.achievements.includes(id))p.achievements.push(id)}
-  window.GameCore={Games,names,limits,escape,shuffle,clamp,sum,fmtTime,formatMoney,playerBadge,createProfile,attachSlots,validProfile,ranks,gainAchievement};
+  window.GameCore={version:'1.3.0',Games,names,limits,escape,shuffle,clamp,sum,fmtTime,formatMoney,playerBadge,createProfile,attachSlots,validProfile,ranks,gainAchievement};
 })();

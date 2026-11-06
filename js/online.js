@@ -3,8 +3,8 @@
   const app = document.getElementById('online-app'), forms = window.OnlineForms;
   const drafts = new Map(), passwordDrafts = new Map();
   let sharedCreate = {}, notice = '', noticeTimer, manualCopyRoom = '', renderedView = '';
-  const names = { splendor: '璀璨宝石', scout: '马戏星探', poker: '德州扑克', athlete: '胡闹运动会', flip7: 'Flip 7' };
-  const limits = { splendor: [2, 4], scout: [2, 5], poker: [2, 10], athlete: [2, 6], flip7: [2, 6] };
+  const names = { splendor: '璀璨宝石', scout: '马戏星探', poker: '德州扑克', athlete: '胡闹运动会', flip7: 'Flip 7', mahjong: '武穴麻将' };
+  const limits = { splendor: [2, 4], scout: [2, 5], poker: [2, 10], athlete: [2, 6], flip7: [2, 6], mahjong: [4, 4] };
   const emotes = ['好牌！', '漂亮！', '再想想…', '运气真好', '哎呀！', '轮到你啦'];
   const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   let me = null, socket = null, connected = false, rooms = [], state = null, error = '', draftGame = 'splendor';
@@ -72,6 +72,7 @@
       ${type !== 'poker' ? `<label class="online-field">电脑难度<select name="difficulty">${option('easy', '初级 · 初次玩', true)}${option('medium', '中级')}${option('hard', '高级')}</select></label>` : '<input type="hidden" name="difficulty" value="medium">'}
       ${type !== 'poker' ? `<label class="online-field"><span><input name="bots" type="checkbox" checked> 人数不足时由电脑补位</span></label>` : ''}
       ${type === 'athlete' ? `<label class="online-field">选角<select name="draftMode">${option('draft', '蛇形选角', true)}${option('random', '随机组队')}</select></label><label class="online-field">赛道<select name="trackMode">${option('alternating', '温和／狂野交替', true)}${option('mild', '全程温和')}</select></label>` : ''}
+      ${type === 'mahjong' ? '<div class="mj-price-fields">'+Object.entries({1:'1斤',2:'2斤',4:'4斤',8:'8斤',16:'16斤封顶',silver:'银顶／家',gold:'金顶／家'}).map(([key,text])=>'<label>'+text+'（元）<input name="mj-price-'+key+'" type="number" min="0.01" max="1000000" step="0.01" value="'+({1:1,2:1,4:2,8:4,16:8,silver:10,gold:15})[key]+'" required></label>').join('')+'</div><label>操作时限（秒）<input name="turnSeconds" type="number" min="15" max="300" value="120" required></label><p>麻将固定四座；不启用电脑时，需要四人准备。金额在本场固定，人员更换前结算。</p>' : ''}
       ${type === 'poker' ? `<label class="online-field">玩法<select name="mode">${option('cash', '现金桌', mode === 'cash')}${option('tournament', '锦标赛', mode === 'tournament')}</select></label>
         <div class="online-compact"><label>初始筹码 <input name="buyin" type="number" min="40" max="1000000" value="200" required></label><label>小盲 <input name="small" type="number" min="1" max="100000" value="1" required></label><label>大盲 <input name="big" type="number" min="2" max="100000" value="2" required></label></div>
         <div class="online-compact">${mode === 'tournament' ? '<label>每几手升盲 <input name="blindEvery" type="number" min="0" max="100" value="10" required><small class="muted">填 0 使用固定盲注</small></label>' : ''}<label>操作时限（秒）<input name="turnSeconds" type="number" min="30" max="300" value="120" required></label></div>` : ''}
@@ -93,6 +94,7 @@
       scout: ['手牌顺序固定，从连续位置选牌表演，或招募舞台两端的牌。', '开局可以整手翻面；之后不能重排。先点选组合查看预览，再确认表演；招募时选择数字朝向和插入位置。'],
       poker: ['轮到你时，在底牌旁选择弃牌、过牌、跟注或加注。', '加注金额是本轮累计下注总额；旁边会显示本次需要支付多少。每手结束后由房主开启下一手；筹码仅用于游戏。'],
       athlete: ['先选队员，再挑选本场出赛角色；轮到你时掷骰或选择技能。', '每位角色只能参加一场，共四场。随机组队可跳过选角；需要技能选择时，操作按钮会显示在赛道附近。'],
+      mahjong: ['点击自己的牌出牌；出现响应时选择吃、碰、杠、胡或过。', '固定四座，可用电脑补齐。清水与浑水按斤数结算，庄家不加斤。双方杠数相加，赖子杠和暗杠计两杠。门面清、七对赢牌时三家都付款；其他情况未开口者免付。16斤封顶，银顶两家各10元，金顶三家各15元（按开局金额）。抢杠仅限补杠，按杠上开花算。两骰和从庄家起顺时针选牌墙，大点数翻该垛上牌；翻皮后跳过皮子点数垛（字牌跳1垛）再抓。单张特殊杠不算开口；多个牌型取最高，风一色暂按16斤，赢家坐庄。每局结束可继续或结算本场，参与人的结果自动缓存在本机，可下载JSON。'],
       flip7: ['轮到你时，选择“继续翻一张”或“收分”。', '重复数字会爆牌，本轮 0 分；集齐七种数字加 15 分并结束本轮。特殊牌出现时按提示选目标，累计至少 200 分且独自领先获胜。']
     };
     const [action, rule] = tips[room.options.type];
@@ -126,6 +128,7 @@
     const seated = room.seat >= 0;
     const mine = [...room.members, ...room.queue].find(m => m.id === me.id);
     const prepared = [...room.members, ...room.queue].filter(m => m.ready && m.online).length;
+    const needed = room.options.type === 'mahjong' && room.options.bots === false ? 4 : 2;
     const waiting = [...room.members.filter(m => room.phase !== 'lobby' && m.seat < 0), ...room.queue];
     const readyButton = `<button class="${mine?.ready ? '' : 'primary'}" data-ui="ready">${mine?.ready ? '取消准备' : '准备好了'}</button>`;
     const timing = room.options.type === 'poker' && room.options.mode === 'cash' ? '下一手' : '下一整局';
@@ -133,12 +136,12 @@
       <div class="online-seat-list">${seats.map((s, i) => seatCard(s, i, room)).join('')}</div>
       ${waiting.length ? `<p>候场：${waiting.map(x => `${esc(x.nick)}（${x.ready ? '已准备' : '未准备'}）`).join('、')}</p>` : ''}
       ${room.phase === 'playing' && room.options.type !== 'poker' && host ? room.members.filter(x => !x.online && !x.takeover && x.seat >= 0).map(x => `<button data-ui="takeover" data-target="${x.id}">托管 ${esc(x.nick)}（掉线满 120 秒后）</button>`).join('') : ''}`;
-    return `<section class="panel online-room-header ${room.phase === 'playing' ? 'is-playing' : ''}"><div class="row between"><div><span class="eyebrow">ROOM ${esc(room.id)}</span><h1>${esc(title)}</h1></div><div class="online-compact"><button data-ui="copy-link" data-url="${esc(inviteUrl)}">复制邀请链接</button>${room.phase !== 'playing' || !seated ? '<button data-ui="leave-room">离开房间</button>' : ''}</div></div>
+    return `<section class="panel online-room-header ${room.phase === 'playing' ? 'is-playing' : ''}"><div class="row between"><div><span class="eyebrow">ROOM ${esc(room.id)}</span><h1>${esc(title)}</h1></div><div class="online-compact"><button data-ui="copy-link" data-url="${esc(inviteUrl)}">复制邀请链接</button>${room.phase !== 'playing' || !seated || room.mahjongBetween ? '<button data-ui="leave-room">离开房间</button>' : ''}</div></div>
       ${manualCopyRoom === room.id ? `<details class="online-copy-fallback" data-detail-id="manual-copy" open><summary>手动复制邀请链接</summary><label class="online-field">邀请链接<input id="invite-copy-url" readonly value="${esc(inviteUrl)}"></label><p class="muted">浏览器暂不支持自动复制，请选中链接复制；手机可长按复制。</p></details>` : ''}
-      <div class="online-room-status"><span>${room.phase === 'lobby' ? `已准备 ${prepared} 人 · 满 2 人即可开局` : room.phase === 'playing' ? seated ? '对局进行中' : mine?.ready ? `已准备 · ${timing}自动入座` : '候场中 · 准备后自动参与' : '本局已结束'} · 房主 ${esc([...room.members, ...room.queue].find(x => x.id === room.host)?.nick || '')} · ${room.options.seats} 座</span>
+      <div class="online-room-status"><span>${room.phase === 'lobby' ? `已准备 ${prepared} 人 · 满 ${needed} 人即可开局` : room.phase === 'playing' ? seated ? '对局进行中' : mine?.ready ? `已准备 · ${timing}自动入座` : '候场中 · 准备后自动参与' : '本局已结束'} · 房主 ${esc([...room.members, ...room.queue].find(x => x.id === room.host)?.nick || '')} · ${room.options.seats} 座</span>
       ${room.turnDeadline && room.phase === 'playing' ? `<span>操作剩余 <time id="turn-clock" data-deadline="${room.turnDeadline}"></time></span>` : ''}</div>
       ${room.phase === 'playing' ? `<details class="online-room-details" data-detail-id="room-management"><summary>房间成员与管理</summary>${management}</details>` : management}
-      ${room.phase === 'lobby' ? `<div class="online-compact">${readyButton}${host ? `<button class="primary" data-ui="start" ${prepared >= 2 ? '' : 'disabled'}>开始本局</button>` : ''}</div><p class="footer-note">未准备的人可以稍后准备，${timing}自动入座。</p>` : !seated && mine ? `<div class="online-compact">${readyButton}<span class="muted">${timing}有空位时自动入座。</span></div>` : ''}
+      ${room.phase === 'lobby' ? `<div class="online-compact">${readyButton}${host ? `<button class="primary" data-ui="start" ${prepared >= needed ? '' : 'disabled'}>开始本局</button>` : ''}</div><p class="footer-note">未准备的人可以稍后准备，${timing}自动入座。</p>` : !seated && mine ? `<div class="online-compact">${readyButton}<span class="muted">${timing}有空位时自动入座。</span></div>` : ''}
       ${room.phase === 'finished' && host ? '<button class="primary" data-ui="rematch">返回准备下一局</button>' : ''}${guide(room)}</section>
       ${room.phase !== 'lobby' ? `<div class="online-game"><div class="game-surface game-${room.options.type}">${gameHtml}</div>${transferPanel(room)}</div>` : ''}
       ${room.phase === 'playing' ? `<nav class="online-emote-dock" aria-label="牌桌快捷短语"><span>快捷短语</span><div class="online-emote-buttons">${emotes.map(x => `<button data-ui="emote" data-phrase="${esc(x)}">${esc(x)}</button>`).join('')}</div></nav>` : ''}`;
@@ -158,7 +161,7 @@
     app.classList.toggle('online-playing', state?.room.phase === 'playing');
     app.innerHTML = `<header class="topbar"><a class="brand" href="/">桌边 <span class="muted">/ 联机</span></a><nav class="top-actions" aria-label="页面导航与状态"><a class="nav-link" href="/index.html">游客单机 <span aria-hidden="true">↗</span></a>${me ? `<span class="online-account">${esc(me.nick)} · ID ${esc(me.id.slice(0, 8))}</span><span class="connection-pill ${connected ? 'is-connected' : 'online-disconnected'}">${connected ? '已连接' : '连接中…'}</span>` : ''}</nav></header>
       ${error ? `<p class="notice error online-error" role="alert">${esc(error)}</p>` : ''}${notice ? `<p class="notice online-success" role="status">${esc(notice)}</p>` : ''}
-      ${!me ? identityPage() : state ? roomPage(state.room, state.gameHtml) : lobbyPage()}
+      ${!me ? identityPage() : state ? roomPage(state.room, state.gameHtml) : lobbyPage()}${window.MahjongResults?.html() || ''}
       <p class="footer-note">临时身份与房间只保存在本机服务器进程中；联机筹码仅用于游戏。</p>`;
     for (const form of app.querySelectorAll('form')) {
       form.noValidate = true;
@@ -189,7 +192,8 @@
     socket.onmessage = event => {
       let packet; try { packet = JSON.parse(event.data); } catch { return; }
       if (packet.type === 'rooms') rooms = packet.rooms;
-      else if (packet.type === 'state') { state = { room: packet.room, gameHtml: packet.gameHtml }; error = ''; }
+      else if (packet.type === 'state') { state = { room: packet.room, gameHtml: packet.gameHtml }; error = ''; if(packet.mahjongResult && window.MahjongResults && !window.MahjongResults.save(packet.mahjongResult)) { if(packet.mahjongResult.ledger.length) error='本机结果缓存失败，请及时下载本场结果'; } }
+      else if (packet.type === 'mahjongResult') { window.MahjongResults?.save(packet.result); }
       else if (packet.type === 'left') state = null;
       else if (packet.type === 'error') error = packet.message;
       render();
@@ -248,7 +252,10 @@
         const data = await response.json(); if (!response.ok) throw Error(data.error);
         me = data; error = ''; connect(); render();
       } catch (e) { showError(e.message); }
-    } else if (form.getAttribute('id') === 'create-form') send({ kind: 'create', ...values, bots: form.elements.bots ? form.elements.bots.checked : false });
+    } else if (form.getAttribute('id') === 'create-form') {
+      const prices=values.type==='mahjong'?Object.fromEntries(['1','2','4','8','16','silver','gold'].map(key=>[key,Math.round(Number(values['mj-price-'+key])*100)])):undefined;
+      send({ kind: 'create', ...values, ...(prices?{prices}:{}), bots: form.elements.bots ? form.elements.bots.checked : false });
+    }
     else if (form.getAttribute('id') === 'join-form') send({ kind: 'join', ...values, id: forms.roomCode(values.id) });
     else if (form.getAttribute('id') === 'transfer-form') send({ kind: 'requestTransfer', to: values.to, amount: Number(values.amount) });
     else if (form.getAttribute('id') === 'gift-form') send({ kind: 'gift', to: values.to, amount: Number(values.amount) });

@@ -199,7 +199,7 @@ function chips(room) {
 
 console.log('Online room and game checks passed.');
 
-for (const type of Object.keys(C.names)) {
+for (const type of Object.keys(C.names).filter(type => type !== 'mahjong')) {
   for (const bots of [false, true]) {
     const hub = new Hub(), users = Array.from({ length: 3 }, (_, i) => hub.identity('准备测试' + i));
     users.forEach(u => hub.connect(u, peer()));
@@ -275,7 +275,7 @@ assert.throws(() => C.Games.flip7.create(2), /3–6 人/, 'solo player limits re
   hub.closeRoom(room, users[0]);
 }
 
-for (const type of Object.keys(C.names)) {
+for (const type of Object.keys(C.names).filter(type => type !== 'mahjong')) {
   const ctx = setup(type), { hub, users, room } = ctx;
   const before = JSON.stringify(room.game);
   hub.emote(room, users[0], '好牌！'); hub.emote(room, users[1], '漂亮！');

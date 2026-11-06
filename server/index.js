@@ -29,7 +29,7 @@ function body(request) {
 }
 
 const allowed = name => name === 'landing.html' || name === 'index.html' || name === 'online.html' ||
-  /^(styles|visual|tabletop|new-games|online|ui)\.css$/.test(name) ||
+  /^(styles|visual|tabletop|new-games|online|ui|mahjong)\.css$/.test(name) ||
   /^js\/[a-z0-9-]+\.js$/.test(name) || /^assets\/[a-z0-9-]+\.(svg|png)$/.test(name);
 
 function serve(request, response) {

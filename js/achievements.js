@@ -45,7 +45,8 @@
     const legacy=['splendor','scout','poker'].map(k=>p.stats[k]),stats=Object.values(p.stats),completed=stats.reduce((n,s)=>n+s.completed,0);
     grant('first_win',stats.some(s=>s.wins>0));grant('explorer',legacy.every(s=>s.completed>0));
     grant('regular',completed>=10);grant('veteran',completed>=50);grant('triple_winner',legacy.every(s=>s.wins>0));
-    grant('five_tables',stats.length===5&&stats.every(s=>s.completed>0));grant('five_wins',stats.length===5&&stats.every(s=>s.wins>0));
+    const originalFive=['splendor','scout','poker','athlete','flip7'].map(k=>p.stats[k]);
+    grant('five_tables',originalFive.every(s=>s.completed>0));grant('five_wins',originalFive.every(s=>s.wins>0));
     grant('splendor_win',p.stats.splendor.wins>0);grant('scout_win',p.stats.scout.wins>0);
     grant('debt_free',p.bank.totalBorrowed>0&&p.bank.outstanding===0);
     const tournamentResult=r=>{
@@ -98,7 +99,7 @@
       }
     }
     if(['explorer','triple_winner'].includes(id)){const field=id==='explorer'?'completed':'wins';return ['splendor','scout','poker'].map(k=>p.stats[k]).filter(s=>s[field]>0).length+' / 3 款'}
-    if(['five_tables','five_wins'].includes(id)){const field=id==='five_tables'?'completed':'wins';return Object.values(p.stats).filter(s=>s[field]>0).length+' / 5 款'}
+    if(['five_tables','five_wins'].includes(id)){const field=id==='five_tables'?'completed':'wins';return ['splendor','scout','poker','athlete','flip7'].filter(k=>p.stats[k][field]>0).length+' / 5 款'}
     if(['regular','veteran'].includes(id))return Math.min(id==='regular'?10:50,Object.values(p.stats).reduce((n,s)=>n+s.completed,0))+' / '+(id==='regular'?10:50)+' 场';
     return '';
   }

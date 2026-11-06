@@ -177,7 +177,7 @@ Math.random=random;
 for(const version of [1,2]){
   const p=JSON.parse(JSON.stringify(C.createProfile()));delete p.games.athlete;delete p.games.flip7;delete p.stats.athlete;delete p.stats.flip7;p.version=version;
   if(version===1){p.active=null;delete p.games;delete p.activeType}
-  assert(C.validProfile(p));const restored=C.attachSlots(p);assert.equal(restored.version,3);assert.equal(restored.wallet,2000);assert.equal(Object.keys(restored.games).length,5);assert(C.validProfile(restored));
+  assert(C.validProfile(p));const restored=C.attachSlots(p);assert.equal(restored.version,3);assert.equal(restored.wallet,2000);assert.equal(Object.keys(restored.games).length,6);assert(C.validProfile(restored));
 }
 for(const type of ['athlete','flip7']){
   const p=C.createProfile(),g=C.Games[type].create(4);p.active={type,players:4,difficulty:'medium',elapsedMs:0,paused:true,game:g};assert(C.validProfile(p));

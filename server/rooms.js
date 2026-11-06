@@ -15,6 +15,12 @@ function settings(input) {
   const difficulty = ['easy', 'medium', 'hard'].includes(input.difficulty) ? input.difficulty : null;
   if (!seats || !difficulty) bad('人数或难度无效');
   const out = { type, seats, difficulty };
+  if (type === 'mahjong') {
+    if (seats !== 4) bad('武穴麻将固定四个座位');
+    out.prices = C.Games.mahjong.prices(input.prices);
+    out.turnSeconds = int(input.turnSeconds ?? 120, 15, 300);
+    if (!out.turnSeconds) bad('操作时限需为15–300秒');
+  }
   if (type === 'poker') {
     out.mode = ['cash', 'tournament'].includes(input.mode) ? input.mode : 'cash';
     out.buyin = int(input.buyin, 40, 1000000);
@@ -135,6 +141,10 @@ class Hub {
 
   leave(user) {
     const room = this.currentRoom(user);
+    if (room.options.type === 'mahjong' && room.phase === 'playing' && room.game.roundPending && this.seat(room, user.id) >= 0) {
+      this.finishMahjongForMembers(room);
+      C.Games.mahjong.act(room.game, 'm-end'); room.phase = 'finished'; clearTimeout(room.timer);
+    }
     if (room.phase === 'playing' && this.seat(room, user.id) >= 0) bad('对局进行中，德州现金桌须在两手之间按筹码规则离席；其余游戏请等待本局结束');
     this.removeMember(room, user.id);
     user.peer?.send({ type: 'left' });
@@ -162,6 +172,7 @@ class Hub {
     const players = [...room.members, ...room.queue].filter(id => room.ready.has(id) && this.isOnline(id)).slice(0, o.seats);
     if (players.length < 2) bad('至少两名在线玩家准备好即可开局');
     const count = o.bots ? o.seats : players.length;
+    if (o.type === 'mahjong' && count !== 4) bad('武穴麻将需四名真人准备，或开启电脑补位');
     room.members = [...new Set([...room.members, ...players])];
     room.queue = room.queue.filter(id => !players.includes(id));
     room.seats = Array.from({ length: count }, (_, i) => players[i] || null);
@@ -203,6 +214,7 @@ class Hub {
     const g = room.game, o = room.options;
     if (room.phase !== 'playing' || !g) return;
     if (g.finished) { room.phase = 'finished'; return; }
+    if (o.type === 'mahjong') { this.scheduleMahjong(room); return; }
     if (o.type === 'poker') {
       const key = this.turn(room);
       if (key !== room.turnKey) { room.turnKey = key; room.turnDeadline = key ? Date.now() + o.turnSeconds * 1000 : 0; }
@@ -242,21 +254,57 @@ class Hub {
     room.timer.unref();
   }
 
+  scheduleMahjong(room) {
+    const g = room.game, engine = C.Games.mahjong;
+    if (g.roundPending) { room.turnKey = ''; room.turnDeadline = 0; return; }
+    const key = g.pending ? 'response:' + g.pending.id : 'turn:' + g.step;
+    if (room.turnKey !== key) { room.turnKey = key; room.turnDeadline = Date.now() + room.options.turnSeconds * 1000; }
+    const eligible = g.pending ? g.pending.offers.filter(o => engine.canAct(g, o.seat)).map(o => o.seat) : [g.current];
+    const bot = eligible.find(i => !room.seats[i] || room.takeovers.has(room.seats[i]));
+    room.timer = setTimeout(() => {
+      if (!this.rooms.has(room.id) || room.phase !== 'playing' || room.turnKey !== key) return;
+      C.onlineLabels = this.names(room);
+      try {
+        if (bot !== undefined) engine.bot(g, room.options.difficulty, bot);
+        else if (Date.now() >= room.turnDeadline) {
+          if (g.pending) for (const seat of eligible) {
+            if (!g.pending || 'response:' + g.pending.id !== key) break;
+            if (engine.canAct(g, seat)) engine.act(g, 'm-pass', { window: g.pending.id }, seat);
+          }
+          else engine.bot(g, room.options.difficulty, g.current);
+        }
+        this.touch(room);
+      } catch (error) { console.error('Mahjong automatic action:', error); }
+    }, bot !== undefined ? 350 : Math.max(1, room.turnDeadline - Date.now()));
+    room.timer.unref();
+  }
+
+  finishMahjongForMembers(room) {
+    if (room.options.type !== 'mahjong' || !room.game) return;
+    const result = C.Games.mahjong.summary(room.game);
+    result.final = true; result.endedAt = result.endedAt || Date.now();
+    result.interrupted = !room.game.roundPending && !room.game.finished;
+    for (const id of room.seats) this.identities.get(id)?.peer?.send({ type: 'mahjongResult', result });
+  }
+
   gameAction(room, user, message) {
     if (room.phase !== 'playing') bad('游戏未运行');
     const g = room.game, o = room.options, engine = C.Games[o.type], action = String(message.action || '');
-    if (!action.startsWith({ splendor: 's-', scout: 'c-', poker: 'p-', athlete: 'a-', flip7: 'f-' }[o.type])) bad('行动与游戏不符');
+    if (!action.startsWith({ splendor: 's-', scout: 'c-', poker: 'p-', athlete: 'a-', flip7: 'f-', mahjong: 'm-' }[o.type])) bad('行动与游戏不符');
     const seat = this.seat(room, user.id);
-    const hostAction = (o.type === 'poker' && action === 'p-next') ||
+    const hostAction = (o.type === 'mahjong' && ['m-next', 'm-end'].includes(action)) || (o.type === 'poker' && action === 'p-next') ||
       (o.type === 'scout' && action === 'c-next-round') || (o.type === 'athlete' && ['a-next', 'a-speed', 'a-step'].includes(action)) ||
       (o.type === 'flip7' && action === 'f-next');
     if (hostAction) this.requireHost(room, user);
     else if (seat < 0) bad('候场玩家不能行动');
-    else if (g.current !== seat) bad('尚未轮到你');
+    else if (o.type === 'mahjong' ? !C.Games.mahjong.canAct(g, seat) : g.current !== seat) bad('尚未轮到你');
     if (o.type === 'poker' && ['p-watch'].includes(action)) bad('联机观战方式由房主控制');
     const data = message.data && typeof message.data === 'object' && !Array.isArray(message.data) ? message.data : {};
     C.onlineLabels = this.names(room);
-    engine.act(g, action, data);
+    const previous = o.type === 'mahjong' ? JSON.parse(JSON.stringify(g)) : null;
+    try { engine.act(g, action, data, seat);
+      if (previous && !engine.validate(g, room.seats.length)) throw Error('麻将状态无效');
+    } catch (error) { if (previous) { for (const key of Object.keys(g)) delete g[key]; Object.assign(g, previous); } throw error; }
     if (!engine.validate(g, room.seats.length)) bad('行动后游戏状态无效');
     if (o.type === 'poker' && action === 'p-next') room.boardChanged = false;
     user.ui = {};
@@ -364,6 +412,7 @@ class Hub {
 
   closeRoom(room, user) {
     this.requireHost(room, user);
+    this.finishMahjongForMembers(room);
     clearTimeout(room.timer);
     for (const id of [...room.members, ...room.queue]) {
       const member = this.identities.get(id);
@@ -409,7 +458,10 @@ class Hub {
     if (action === 'decideTransfer') return this.decideTransfer(room, user, String(message.id), message.accept === true);
     if (action === 'gift') return this.gift(room, user, String(message.to), Number(message.amount));
     if (action === 'gameAction') {
-      if (message.revision !== room.revision) bad('对局已更新，请按最新画面重试');
+      // Responses from different seats share the same game step even when a
+      // first answer or a chat message has already advanced the room revision.
+      const sameMahjongStep = room.options.type === 'mahjong' && room.game && Number(message.data?.step) === room.game.step;
+      if (message.revision !== room.revision && !sameMahjongStep) bad('对局已更新，请按最新画面重试');
       return this.gameAction(room, user, message);
     }
     bad('未知操作');
@@ -420,7 +472,8 @@ class Hub {
     if (!g) return '';
     const playerName = i => C.playerBadge(i, { onlineSeats: view.seats, onlineEmotes: view.emotes }) + esc(names[i]);
     let rows = '';
-    if (type === 'poker') rows = g.players.map((p, i) => `<li>${playerName(i)} · ${p.stack} 筹码${p.folded ? ' · 已弃牌或候场' : ''}</li>`).join('');
+    if (type === 'mahjong') rows = g.players.map((p,i) => `<li>${playerName(i)} · ${C.Games.mahjong.opened(p) ? '已开口' : '未开口'} · ${p.hand.length} 张手牌 · 本场 ${C.Games.mahjong.money(g.totals[i])} 元</li>`).join('');
+    else if (type === 'poker') rows = g.players.map((p, i) => `<li>${playerName(i)} · ${p.stack} 筹码${p.folded ? ' · 已弃牌或候场' : ''}</li>`).join('');
     else if (type === 'splendor') rows = g.players.map((p, i) => `<li>${playerName(i)} · ${C.Games.splendor.points(p)} 分 · ${p.gems.join('/')} 筹码</li>`).join('');
     else if (type === 'scout') rows = g.totals.map((score, i) => `<li>${playerName(i)} · ${score} 分 · ${g.hands[i].length} 张手牌</li>`).join('');
     else if (type === 'athlete') rows = g.totals.map((score, i) => `<li>${playerName(i)} · ${score} 分</li>`).join('');
@@ -428,7 +481,8 @@ class Hub {
     const board = type === 'poker' ? `<p>公共牌：${g.board.map(cardName).join(' ') || '尚未翻牌'}</p>` : '';
     let controls = '';
     if (room.host === user.id && room.phase === 'playing') {
-      if (type === 'poker' && g.betweenHands) controls = '<button class="primary" data-action="p-next">开启下一手</button>';
+      if (type === 'mahjong' && g.roundPending) controls = '<button class="primary" data-action="m-next">继续下一局</button><button data-action="m-end">结束本场并结算</button>';
+      else if (type === 'poker' && g.betweenHands) controls = '<button class="primary" data-action="p-next">开启下一手</button>';
       else if (type === 'scout' && g.roundPending) controls = '<button class="primary" data-action="c-next-round">继续下一轮</button>';
       else if (type === 'flip7' && g.roundPending) controls = '<button class="primary" data-action="f-next">继续下一轮</button>';
       else if (type === 'athlete' && g.roundPending) controls = '<button class="primary" data-action="a-next">继续下一场</button>';
@@ -444,6 +498,7 @@ class Hub {
       seats: room.seats.map((id, i) => ({ id, nick: this.names(room)[i], online: id ? this.isOnline(id) : true, bot: !id })),
       requests: [...room.requests.values()].filter(r => r.from === user.id || r.to === user.id).map(r => ({ ...r, fromNick: this.identities.get(r.from)?.nick, toNick: this.identities.get(r.to)?.nick })),
       cashStacks: room.options.type === 'poker' && room.options.mode === 'cash' && room.game ? room.game.players.map((p, i) => ({ id: room.seats[i], nick: this.names(room)[i], stack: p.stack })) : [],
+      mahjongBetween: room.options.type === 'mahjong' && !!room.game?.roundPending,
       betweenHands: !!room.game?.betweenHands, handCount: room.game?.handCount || 0,
       turnDeadline: room.turnDeadline, emotes: [...room.emotes.values()].filter(x => x.until > Date.now()),
       ranks: room.game?.ranks || null };
@@ -464,7 +519,8 @@ class Hub {
           waitingHand: room.boardChanged, onlineSeats: view.seats, onlineEmotes: view.emotes });
       }
     }
-    user.peer.send({ type: 'state', room: view, gameHtml });
+    const mahjongResult = room.options.type === 'mahjong' && room.game && this.seat(room,user.id) >= 0 ? C.Games.mahjong.summary(room.game) : undefined;
+    user.peer.send({ type: 'state', room: view, gameHtml, ...(mahjongResult ? { mahjongResult } : {}) });
   }
 
   touch(room) {
