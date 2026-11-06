@@ -46,7 +46,7 @@ test('clear/turbid, 258 pair, closed self only, and big multi-joker hands',()=>{
   assert.equal(M.analyse(s,0,null,false,false),null,'closed ordinary hand cannot claim a discard');
   s=fixture([[...small.slice(0,12),12,12]]);assert.equal(M.analyse(s,0),null,'small hand requires 258 pair');
   s=fixture([[...openSmall.slice(0,9),5,5]],[[peng],[],[],[]]);assert.equal(M.analyse(s,0),null,'two jokers never rescue an opened small hand');
-  assert.equal(M.analyse(s,0,null,true)?.flower,true,'flower is big and allows two jokers');
+  assert.equal(M.analyse(s,0,null,true)?.flower,true,'flower permits multiple jokers when the hand still has a valid 258 pair decomposition');
   s=fixture([[0,1,2,6,7,8,9,10,5,18,19,20,13,13]]);info=M.analyse(s,0);assert(info&&!info.clean);assert.equal(info.name,'门面清');
   s=fixture([[0,0,1,1,2,2,9,9,10,10,18,18,5,5]]);info=M.analyse(s,0);assert(info.seven&&info.big);assert(M.analyse(s,0,null,false,false),'seven pairs may win by discard');
   s=fixture([[0,0,0,9,9,9,18,18,5,13,5]],[[peng],[],[],[]]);info=M.analyse(s,0);assert(info?.kinds.includes('碰碰胡'));assert.equal(info.jokerCount,2);
@@ -161,9 +161,9 @@ test('room revision changes cannot invalidate a still-open mahjong response step
   hub.handle(users[1],{kind:'gameAction',revision,action:'m-peng',data:{step,window}});
   assert(room.revision>revision);
   hub.handle(users[2],{kind:'gameAction',revision,action:'m-hu',data:{step,window}});
-  assert(s.pending,'wait for the final eligible responder');
+  assert(s.roundPending,'a confirmed hu need not wait for lower-priority chi');
   const before=JSON.stringify(s);
-  assert.throws(()=>hub.handle(users[2],{kind:'gameAction',revision,action:'m-hu',data:{step,window}}),/尚未轮到/);
+  assert.throws(()=>hub.handle(users[2],{kind:'gameAction',revision,action:'m-hu',data:{step,window}}),/游戏未运行|尚未轮到|当前不能|已更新/);
   assert.equal(JSON.stringify(s),before,'duplicate response preserves the pending responses');
   if(M.canAct(s,3))hub.handle(users[3],{kind:'gameAction',revision,action:'m-pass',data:{step,window}});
   assert(s.roundPending);assert.equal(s.roundResult.winner,2);assert(M.validate(s,4));hub.closeRoom(room,users[0]);
@@ -183,4 +183,32 @@ test('a full localStorage still leaves the current result available for download
   vm.runInNewContext(fs.readFileSync(__dirname+'/../js/mahjong-results.js','utf8'),context);
   const s=M.create(4);while(!s.roundPending)M.bot(s);M.act(s,'m-end');
   assert.equal(context.MahjongResults.save(M.summary(s)),false);assert.equal(context.MahjongResults.read()[0].sessionId,s.sessionId);
+});
+
+test('flower scoring never bypasses a non-258 pair, and does not invent rob eligibility',()=>{
+  const s=fixture([[...small.slice(0,12),12,12]]);
+  assert.equal(M.analyse(s,0,null,true,true),null);
+  const ready=fixture([[...openSmall.slice(0,9),12]],[[peng],[],[],[]]);
+  assert.equal(M.analyse(ready,0,12*4+1,true,false),null);
+});
+
+test('two hu notices are private and later hu waits for earlier decline without discarding',()=>{
+  const build=()=>{const s=fixture([[29,3,3,12,12,14,14,15,15,16,16,21,21,22],undefined,[9,9,10,10,11,11,18,18,19,19,20,20,29],[0,0,1,1,2,2,6,6,7,7,8,8,29]]);M.act(s,'m-discard',{tile:s.players[0].hand.find(id=>M.type(id)===29)},0);return s;};
+  let s=build(),window=s.pending.id;
+  assert(M.render(s,{viewer:3}).includes('你可以胡'));assert(M.render(s,{viewer:2}).includes('你可以胡'));
+  M.act(s,'m-hu',{window},2);assert(s.pending&&!s.roundPending);assert.equal(s.current,3);
+  const before=s.discards.length,hand=s.players[3].hand.slice();
+  assert(!M.render(s,{viewer:3}).includes('后面也有人'));
+  M.act(s,'m-pass',{window},3);assert(s.roundPending);assert.equal(s.roundResult.winner,2);assert.equal(s.discards.length,before);assert.deepEqual(s.players[3].hand,hand);assert(M.validate(s,4));
+  s=build();window=s.pending.id;M.act(s,'m-hu',{window},2);M.act(s,'m-hu',{window},3);assert.equal(s.roundResult.winner,3);
+});
+
+test('selection is a preview, latest discards belong to seats and special faces are marked',()=>{
+  const {hub,users,room}=online(false,4),s=room.game,seat=s.current,tile=s.players[seat].hand[0],before=JSON.stringify(s);
+  hub.preview(room,users[seat],{action:'m-select',data:{tile,step:s.step}});assert.equal(JSON.stringify(s),before);
+  const html=users[seat].peer.packets.filter(p=>p.type==='state').at(-1).gameHtml;
+  assert(html.includes('is-selected'));assert(!html.includes('庄家不加斤'));assert(!html.includes('class="mj-river"'));
+  assert.equal((html.match(/最新出牌/g)||[]).length,4);assert(html.includes('data-action="m-select"'));
+  assert(M.tileHtml(33*4).includes('<rect'));assert(M.tileHtml(18*4).includes('<path'));assert(!M.tileHtml(33*4).includes('▱'));
+  hub.closeRoom(room,users[0]);
 });

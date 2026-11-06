@@ -424,7 +424,12 @@ class Hub {
   preview(room, user, input) {
     if (room.phase !== 'playing' || this.seat(room, user.id) < 0) return;
     const a = String(input.action || ''), d = input.data || {};
-    if (a === 's-tier') user.ui.gemTier = int(d.tier, 0, 2) ?? 0;
+    if (a === 'm-select' && room.options.type === 'mahjong') {
+      const tile=int(d.tile,0,135),seat=this.seat(room,user.id);
+      if(Number(d.step)!==room.game.step||!C.Games.mahjong.canAct(room.game,seat)||!room.game.players[seat].hand.includes(tile)) bad('请选择当前可操作的手牌');
+      user.ui.mjSelected={tile,step:room.game.step};
+    }
+    else if (a === 's-tier') user.ui.gemTier = int(d.tier, 0, 2) ?? 0;
     else if (a === 's-review') user.ui.gemReview = int(d.id, 0, 89);
     else if (a === 'c-select-show') user.ui.scoutShow = { start: int(d.start, 0, 30), end: int(d.end, 0, 30) };
     else if (a === 'c-recruit-end') user.ui.scoutEnd = d.end === 'right' ? 'right' : 'left';

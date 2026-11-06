@@ -19,7 +19,7 @@ async function client(base,port,nick){
 }
 function choice(html){
   const buttons=[...html.matchAll(/<button\b([^>]*data-action="m-[^"]+"[^>]*)>/g)].map(m=>Object.fromEntries([...m[1].matchAll(/data-([a-z-]+)="([^"]*)"/g)].map(a=>[a[1],a[2]])));
-  return buttons.find(b=>b.action==='m-hu')||buttons.find(b=>b.action==='m-special')||buttons.find(b=>b.action==='m-gang')||buttons.find(b=>b.action==='m-peng')||buttons.find(b=>b.action==='m-claim-gang')||buttons.find(b=>b.action==='m-chi')||buttons.find(b=>b.action==='m-pass')||buttons.find(b=>b.action==='m-discard');
+  return buttons.find(b=>b.action==='m-hu')||buttons.find(b=>b.action==='m-special')||buttons.find(b=>b.action==='m-gang')||buttons.find(b=>b.action==='m-peng')||buttons.find(b=>b.action==='m-claim-gang')||buttons.find(b=>b.action==='m-chi')||buttons.find(b=>b.action==='m-pass')||buttons.find(b=>b.action==='m-discard')||buttons.find(b=>b.action==='m-select');
 }
 async function run(){
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
@@ -34,9 +34,9 @@ async function run(){
     let steps=0;
     while(!hub.rooms.get(code).game.roundPending&&steps++<1400){
       const room=hub.rooms.get(code),revision=room.revision;await until(()=>clients.every(c=>c.state().room.revision===revision));
-      const actor=clients.find(c=>choice(c.state().gameHtml)),pick=choice(actor.state().gameHtml),{action,...data}=pick;
-      actor.send({kind:'gameAction',action,data,revision});
-      await until(()=>hub.rooms.get(code).revision>revision||actor.packets.at(-1)?.type==='error');
+      const actor=clients.find(c=>choice(c.state().gameHtml)?.action!=='m-select'&&choice(c.state().gameHtml))||clients.find(c=>choice(c.state().gameHtml)),pick=choice(actor.state().gameHtml),{action,...data}=pick;
+      const count=actor.packets.filter(p=>p.type==='state').length;actor.send({kind:action==='m-select'?'preview':'gameAction',action,data,revision});
+      await until(()=>action==='m-select'?actor.packets.filter(p=>p.type==='state').length>count:hub.rooms.get(code).revision>revision||actor.packets.at(-1)?.type==='error');
       assert(!clients.some(c=>c.packets.some(p=>p.type==='error')),JSON.stringify(clients.flatMap(c=>c.packets.filter(p=>p.type==='error'))));assert(M.validate(room.game,4));
     }
     assert(hub.rooms.get(code).game.roundPending);await until(()=>clients.every(c=>c.state().mahjongResult?.ledger.length===1));
