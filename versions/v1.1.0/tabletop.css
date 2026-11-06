@@ -1,0 +1,418 @@
+/* Tabletop views share the same readable layout in illustrated and discreet mode. */
+.slot-tools{display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.slot-tools button{font-size:.78rem;padding:5px 9px}
+.game-shell{max-width:1380px;padding:14px 24px 24px}
+.game-shell .topbar{margin-bottom:12px}
+.game-shell .top-actions button,.compact-header button{font-size:.82rem;padding:6px 10px}
+.compact-header{align-items:center;margin-bottom:12px;gap:8px}
+.compact-header h1{font-size:1.2rem;margin:0;letter-spacing:0}
+.compact-header .muted{font-size:.8rem}
+.game-shell>.footer-note{margin:12px 0 0;font-size:.7rem}
+.table-status{display:flex;align-items:center;gap:14px;font-size:.82rem;padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel)}
+.table-status>strong{white-space:nowrap}
+.latest-action{color:var(--muted);overflow-wrap:anywhere}
+.table-details{font-size:.8rem;border-top:1px solid var(--line);padding:9px 0 0;margin-top:10px}
+.table-details summary{cursor:pointer;color:var(--muted)}
+.table-details[open] summary{margin-bottom:10px}
+.game-record{padding:8px 12px;border:1px solid var(--line);border-radius:9px}
+.game-record .log{max-height:220px}
+.turn-prompt{font-size:.84rem;background:#f0f1ec;border-radius:8px;padding:10px 12px;color:#56615b;overflow-wrap:anywhere}
+.turn-prompt.your-turn{background:var(--accent-soft);color:var(--accent);font-weight:600;border-left:3px solid var(--accent)}
+.mat-label{display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:.8rem;margin:10px 0 6px}
+.mat-label>span{font-size:.72rem;color:var(--muted);font-weight:400}
+.gem-opponents{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:10px}
+.opponent-mat{padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:#f1f2ec}
+.opponent-mat.current{border-color:var(--accent);box-shadow:inset 0 3px var(--accent)}
+.opponent-mat>.row{font-size:.8rem;margin-bottom:5px}
+.opponent-mat>.row>span{font-size:.73rem;color:var(--muted)}
+.inventory-line{display:flex;align-items:center;gap:5px;margin-top:4px}
+.inventory-line>span:first-child{font-size:.7rem;min-width:28px;color:var(--muted)}
+.inventory-line .token{height:20px;min-width:29px;font-size:.7rem}
+.inventory-line.bonuses .token{border-radius:4px}
+.gem-workspace{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:14px;margin-top:10px;align-items:start}
+.gem-market,.gem-player-mat{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:12px}
+.gem-market{background:#eeefe8}
+.gem-market h2,.gem-player-mat h2{font-size:1rem;margin:0}
+.market-heading{margin-bottom:10px}
+.bank-stock{display:flex;align-items:center;flex-wrap:wrap;gap:5px;font-size:.72rem}
+.bank-stock .token{height:22px}
+.market-tier{display:flex;gap:8px;margin-bottom:8px;align-items:stretch}
+.tier-label{width:43px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted)}
+.tier-label>b{font-size:1.1rem}
+.tier-label small{font-size:.65rem;white-space:nowrap}
+.tier-label button{padding:3px 4px;font-size:.65rem}
+.market-tier .market{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;gap:8px}
+.gem-card{width:100%;min-width:0;max-width:none;padding:9px;border-radius:10px;display:flex;flex-direction:column;gap:6px;min-height:114px}
+.gem-card.affordable:not(.owned){border-color:#94b6a5}
+.gem-card-head{display:flex;justify-content:space-between;align-items:center;gap:4px}
+.gem-card-head strong{font-size:.85rem}
+.gem-card-head>b{font-size:1.15rem;white-space:nowrap}
+.gem-card-head>b small{display:inline;font-size:.65rem;font-weight:400}
+.bonus-label{padding:2px 6px;border-radius:5px;border:1px solid #ccd1c8}
+.bonus-label.white,.pick-color.white{background:#fff}
+.bonus-label.blue,.pick-color.blue{background:#e2eefa;color:#235c89}
+.bonus-label.green,.pick-color.green{background:#e3f2e6;color:#286e3d}
+.bonus-label.red,.pick-color.red{background:#f9e4e1;color:#9c3d36}
+.bonus-label.black,.pick-color.black{background:#e8e8e9;color:#292c32}
+.gem-card .cost{margin:0;display:flex;gap:3px;min-height:21px;flex-wrap:wrap}
+.gem-card .cost .token{font-size:.67rem;height:20px;min-width:24px;padding:0 4px}
+.gem-card .card-caption{font-size:.65rem;color:var(--muted);overflow-wrap:anywhere;line-height:1.3}
+.gem-card .actions{gap:5px;margin:0;flex-wrap:nowrap;margin-top:auto}
+.gem-card .actions button{font-size:.7rem;padding:3px 6px;flex:1;white-space:nowrap}
+.noble-strip{display:flex;gap:7px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.noble-strip>span{font-size:.7rem;min-width:52px}
+.noble-tile{border:1px solid #d0cbb9;background:#f7f3e6;border-radius:8px;padding:6px;display:flex;align-items:center;gap:6px}
+.noble-tile strong{font-size:.65rem;font-weight:500;color:#827657}
+.noble-tile .cost{display:flex;gap:2px}
+.noble-tile .token{font-size:.65rem;height:20px;min-width:24px;padding:0 4px;border-radius:4px}
+.gem-player-mat{position:sticky;top:12px;box-shadow:var(--shadow)}
+.score-pill{background:var(--accent-soft);color:var(--accent);padding:4px 9px;border-radius:8px;font-size:.85rem}
+.inventory{display:flex;gap:6px;flex-wrap:wrap}
+.own-gems .token{height:30px;min-width:43px;font-weight:600}
+.own-bonuses .token{height:28px;min-width:43px;border-radius:6px;font-weight:600}
+.mat-summary{font-size:.7rem;color:var(--muted);margin:8px 0 10px}
+.gem-player-mat .actions{margin-top:8px;gap:6px}
+.gem-pick-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:10px 0 8px}
+.pick-color{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;padding:4px 0;font-size:.8rem;border-radius:8px;gap:2px}
+.pick-color small{font-size:.62rem}
+.pick-color.selected{outline:2px solid var(--accent);outline-offset:1px}
+.pick-double{font-size:.63rem;width:100%;padding:4px 0;margin-top:5px}
+.take-gems{width:100%;padding:7px;font-size:.8rem}
+.reserved-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.reserved-cards .gem-card{padding:6px;gap:4px;min-height:104px}
+.reserved-cards .gem-card-head{flex-wrap:wrap}
+.reserved-cards .gem-card-head strong{font-size:.72rem}
+.reserved-cards .gem-card-head>b{font-size:.8rem}
+.reserved-cards .gem-card .cost .token{min-width:20px;font-size:.62rem;height:18px;padding:0 3px}
+.empty-note{font-size:.75rem;color:var(--muted);grid-column:1/-1;padding:5px 0}
+.gem-player-mat .table-details .card-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));max-height:280px;overflow:auto}
+.gem-player-mat .table-details .gem-card{min-height:90px;padding:6px}
+.poker-tabletop{max-width:1260px;margin:auto}
+.poker-arena{position:relative;height:400px;margin:10px 0 12px;isolation:isolate}
+.poker-felt{position:absolute;inset:10% 7%;border-radius:50%;background:#dce9df;border:10px solid #b7c4b6;box-shadow:inset 0 0 0 2px #eff4ec,0 4px 14px #26302d0a;z-index:-1}
+.poker-felt::after{content:'';position:absolute;inset:18px;border:1px solid #a4bcaa;border-radius:50%}
+.poker-seat{position:absolute;left:var(--seat-x);top:var(--seat-y);transform:translate(-50%,-50%);width:148px;border:1px solid #cbd3c9;border-radius:12px;padding:8px 11px;background:var(--panel);box-shadow:0 3px 10px #26302d08;font-variant-numeric:tabular-nums}
+.poker-seat.current{border:2px solid var(--accent);padding:7px 10px;background:#f3f9f3;box-shadow:0 0 0 3px #28685416}
+.poker-seat.hero-seat{border-top:3px solid var(--accent)}
+.seat-name{display:flex;align-items:center;justify-content:space-between;gap:3px;font-size:.82rem}
+.seat-roles{display:flex;align-items:center;gap:4px;font-size:.62rem;color:var(--muted)}
+.dealer-button{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;border:1px solid #c6c6b5;background:#fffdf0;color:#535d55;font-weight:800}
+.seat-stack{font-size:1.15rem;font-weight:700}
+.seat-stack small{font-size:.65rem;font-weight:400;color:var(--muted)}
+.seat-action{font-size:.76rem;color:var(--accent);font-weight:600;min-height:18px;overflow-wrap:anywhere}
+.seat-bet{font-size:.62rem;color:var(--muted);margin-top:2px}
+.poker-seat.folded{background:#eeeee8;border-color:#dbddd4}
+.poker-seat.folded .seat-action{color:var(--muted)}
+.showdown-cards{font-size:.85rem;letter-spacing:2px;border-top:1px solid var(--line);padding-top:3px;margin-top:3px}
+.seat-action.hand-strength{font-weight:750}
+.poker-showdown{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:10px 12px;margin-top:10px}
+.showdown-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.showdown-heading h3{font-size:.82rem;margin:0}
+.showdown-heading>span{font-size:.68rem;color:var(--muted)}
+.showdown-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:6px}
+.showdown-result{display:flex;flex-direction:column;gap:3px;border:1px solid #cfdfd2;background:#f1f6ef;border-radius:7px;padding:6px 9px;font-size:.72rem}
+.showdown-result>strong{font-size:.72rem;color:var(--accent)}
+.showdown-result>span{overflow-wrap:anywhere}
+.showdown-result.not-revealed{background:#f3f3ed;border-color:var(--line);color:var(--muted)}
+.showdown-result.not-revealed>strong{color:var(--muted)}
+.red-suit{color:#a43b3b}
+.poker-center{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);width:330px;text-align:center}
+.pot-label{font-size:.7rem;color:#4e6b56;letter-spacing:.08em}
+.pot-value{font-size:1.8rem;color:#2d5140;font-variant-numeric:tabular-nums}
+.community-cards{display:flex;justify-content:center;gap:7px;margin:8px 0}
+.poker-tabletop .playing-card{min-width:0;width:53px;height:72px;max-width:none;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.35rem;font-weight:600;padding:6px;background-color:#fffefa}
+.poker-tabletop .playing-card.empty-card{background:#f2f5ef5e!important;border:1px dashed #a9beac;color:#66816b;font-size:.72rem;font-weight:400}
+.street-label{font-size:.74rem;color:#43624c}
+.poker-action-dock{display:flex;align-items:center;gap:20px;border:1px solid var(--line);border-radius:14px;padding:12px 18px;background:var(--panel)}
+.hero-cards{flex-shrink:0}
+.hero-cards>.mat-label{font-size:.68rem;margin:0 0 4px;color:var(--muted)}
+.hero-cards .hand{gap:5px;flex-wrap:nowrap}
+.hero-cards .playing-card{width:48px;height:60px;font-size:1.2rem}
+.poker-controls{flex:1;min-width:0}
+.poker-controls .actions{margin-top:9px;gap:8px;align-items:center}
+.poker-controls button{font-size:.83rem;padding:6px 11px;white-space:nowrap}
+.poker-controls label{font-size:.75rem;color:var(--muted)}
+.poker-controls input[type=number]{width:84px;padding:5px}
+.poker-controls .muted{font-size:.73rem}
+.poker-controls p{font-size:.8rem;margin:8px 0 0}
+.hero-finance{display:flex;flex-direction:column;gap:3px;border-left:1px solid var(--line);padding-left:18px;min-width:100px}
+.hero-finance>span,.hero-finance>small{font-size:.67rem;color:var(--muted)}
+.hero-finance strong{font-size:1.2rem}
+.positive{color:var(--accent)}
+.poker-recent{display:flex;align-items:center;gap:14px;margin:10px 0;padding:8px 12px;font-size:.72rem;border-radius:9px;background:#eceee7;color:var(--muted)}
+.poker-recent strong{font-size:.72rem;white-space:nowrap;color:var(--ink)}
+.poker-recent span{border-left:1px solid #cbd1c6;padding-left:12px;flex:1;overflow-wrap:anywhere}
+.poker-funding{margin-top:10px;padding:10px 14px;font-size:.8rem}
+.poker-funding summary{cursor:pointer;color:var(--muted)}
+.poker-funding .row{margin-top:10px}
+.scout-score-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:10px}
+.scout-score-strip small{color:var(--muted);font-size:.72rem}
+.scout-stage{margin-top:10px;border:1px solid var(--line);border-radius:16px;background:#eceee5;padding:14px}
+.scout-stage .panel{margin-top:0;padding:14px;box-shadow:none}
+.scout-performance{text-align:center;min-height:170px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f5f3e9;border-color:#d8d5c3}
+.scout-performance .section-title{margin:0 0 8px;font-size:.78rem;color:var(--muted)}
+.scout-performance h2,.scout-player h2{margin-bottom:8px;font-size:1rem}
+.scout-performance p{margin:8px 0 0;font-size:.78rem}
+.scout-stage .scout-player{margin-top:12px}
+.scout-player>.row>.muted{font-size:.72rem}
+.scout-stage .hand-card{width:52px;min-width:0;padding:7px;border-radius:9px}
+.scout-stage .hand-card strong{font-size:1.5rem}
+.scout-stage .hand-card small{font-size:.62rem}
+.scout-player .section-title{margin:10px 0 4px;font-size:.82rem}
+.scout-player .actions{margin-top:7px}
+.scout-player .actions button,.scout-player select{font-size:.8rem;padding:6px 9px}
+.scout-shows{max-height:130px;overflow:auto}
+.scout-player>.turn-prompt{margin-top:10px}
+@media(min-width:1100px) and (max-height:800px){
+  .game-shell{padding-top:10px}
+  .game-shell .topbar{margin-bottom:8px}
+  .compact-header{margin-bottom:8px}
+  .gem-card{min-height:107px;padding:7px;gap:4px}
+  .gem-opponents{margin-bottom:8px}
+  .opponent-mat{padding:6px 10px}
+  .inventory-line{margin-top:3px}
+  .inventory-line .token{height:17px;font-size:.65rem}
+  .table-status{padding:6px 10px}
+  .market-heading{margin-bottom:7px}
+  .market-tier{margin-bottom:6px}
+  .gem-card{min-height:92px;padding:6px;gap:3px}
+  .gem-card-head>b{font-size:1rem}
+  .gem-card .cost .token{height:18px;font-size:.63rem}
+  .gem-card .card-caption{font-size:.6rem}
+  .gem-card .actions button{padding:2px 5px}
+  .gem-player-mat .mat-label{margin:7px 0 4px}
+  .own-gems .token{height:26px}
+  .own-bonuses .token{height:24px}
+  .gem-player-mat .turn-prompt{padding:8px 10px;font-size:.77rem}
+  .gem-pick-grid{gap:5px;margin:8px 0 6px}
+  .pick-color{padding:3px 0}
+  .pick-double{padding:3px 0;margin-top:4px}
+  .take-gems{padding:5px}
+  .poker-arena{height:350px}
+  .poker-seat{padding:6px 10px}
+  .poker-seat.current{padding:5px 9px}
+  .seat-stack{font-size:1rem}
+  .showdown-cards{font-size:.75rem;padding-top:2px;margin-top:2px}
+}
+@media(max-width:1100px){
+  .gem-workspace{grid-template-columns:minmax(0,1fr) 300px;gap:10px}
+  .gem-card{padding:7px}
+  .gem-card .actions button{padding:3px 4px;font-size:.65rem}
+  .gem-card .cost{gap:2px}
+  .own-gems .token,.own-bonuses .token{min-width:38px}
+  .poker-seat{width:128px;padding:6px 8px}
+  .poker-seat.current{padding:5px 7px}
+  .poker-action-dock{gap:12px;padding:10px 12px}
+  .hero-finance{min-width:80px;padding-left:12px}
+}
+@media(max-width:900px){
+  .game-shell{padding:12px}
+  .gem-workspace{grid-template-columns:1fr}
+  .gem-player-mat{position:static}
+  .poker-arena{height:450px}
+  .poker-seat{width:110px;font-size:.7rem;padding:6px}
+  .poker-seat.current{padding:5px}
+  .seat-stack{font-size:.95rem}
+  .seat-action{font-size:.67rem}
+  .seat-name{font-size:.72rem}
+  .poker-center{width:280px}
+  .poker-action-dock{flex-wrap:wrap}
+  .hero-finance{display:none}
+  .poker-recent{align-items:flex-start;flex-wrap:wrap}
+  .poker-recent span{min-width:180px}
+}
+@media(max-width:580px){
+  .compact-header>.row{gap:6px}
+  .compact-header h1{font-size:1rem}
+  .table-status{flex-wrap:wrap;gap:4px 10px}
+  .gem-opponents{grid-template-columns:1fr}
+  .gem-market{padding:8px}
+  .market-tier{gap:4px}
+  .tier-label{width:28px}
+  .market-tier .market{gap:4px}
+  .gem-card{padding:5px;min-height:132px}
+  .gem-card-head{flex-wrap:wrap}
+  .gem-card-head strong{font-size:.72rem}
+  .gem-card .actions{flex-wrap:wrap}
+  .gem-card .actions button{min-width:100%}
+  .gem-card .card-caption{font-size:.6rem}
+  .poker-arena{min-width:650px}
+  .poker-tabletop{overflow-x:auto;padding-bottom:8px}
+  .poker-action-dock{min-width:0}
+  .hero-cards .playing-card{width:38px;height:52px}
+  .poker-controls{min-width:240px}
+}
+
+/* Decision aids stay next to the action they explain. */
+.action-hint{font-size:.8rem;color:var(--muted);margin:6px 0;line-height:1.45}
+.action-preview{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid #94b6a5;border-radius:9px;background:var(--accent-soft);margin:10px 0;font-size:.85rem}
+.purchase-preview{align-items:stretch;flex-direction:column;gap:5px}
+.resource-gap{font-size:.76rem;line-height:1.3;color:#715441;overflow-wrap:anywhere}
+.gem-card.affordable .resource-gap{color:var(--accent)}
+.gem-card .card-caption{font-size:.74rem}
+.gem-card .cost .token{font-size:.8rem;height:23px;min-width:27px}
+.gem-card .actions button{font-size:.77rem;padding:4px 7px}
+.gem-card-head strong{font-size:.9rem}
+.gem-card{min-height:130px;gap:4px}
+.gem-mobile-resources,.gem-tier-tabs{display:none}
+.gem-player-mat{scroll-margin-top:12px}
+.hand-card.selected{border:2px solid var(--accent);background-color:var(--accent-soft);box-shadow:0 0 0 2px #28685420}
+.scout-stage .hand-card{width:60px}
+.scout-stage .hand-card small{font-size:.72rem;white-space:nowrap}
+.scout-stage .hand-card .small{font-size:.72rem;white-space:nowrap}
+.scout-performance{min-height:110px;padding:10px!important}
+.scout-performance h2{margin-bottom:4px}
+.scout-shows{max-height:none;overflow:visible}
+.scout-insertion{display:flex;flex-wrap:wrap;gap:5px;border:1px dashed #a2b8a7;border-radius:9px;padding:8px;margin-top:8px}
+.scout-insertion>span{min-width:30px;min-height:34px;border:1px solid var(--line);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--panel);font-weight:600}
+.scout-insertion>span.inserted{background:var(--accent);color:white;border-color:var(--accent);padding:3px 6px}
+.scout-insertion small{font-size:.65rem;font-weight:400}
+.recruit-settings{margin-top:10px}
+button[aria-pressed=true]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.round-summary{padding:20px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+.round-summary h2{margin-bottom:8px}
+.round-score-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.round-score{display:flex;flex-direction:column;gap:8px;padding:14px;border:1px solid var(--line);border-radius:10px;background:#f4f5ef}
+.round-score.mine{border-color:var(--accent);background:var(--accent-soft)}
+.round-score span,.round-score small{font-size:.83rem;color:var(--muted)}
+.best-card{outline:2px solid var(--accent);outline-offset:-2px}
+.best-five{display:flex;gap:4px;margin:5px 0;flex-wrap:nowrap}
+.best-five .playing-card{width:38px;min-width:0;max-width:none;height:46px;padding:4px;border-radius:6px;font-size:1rem}
+.showdown-result.winner{border:2px solid var(--accent);background:var(--accent-soft)}
+.poker-seat.winner{border-color:var(--accent);box-shadow:0 0 0 2px #28685420}
+.poker-seat.revealed{width:172px;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:6px}
+.poker-seat.revealed .seat-name{grid-column:1/-1}
+.poker-seat.revealed .seat-stack,.poker-seat.revealed .seat-action,.poker-seat.revealed .seat-bet{grid-column:1;grid-row:auto}
+.seat-hole-cards{grid-column:2;grid-row:2/span 3;align-self:center;display:flex;flex-direction:column;align-items:center;gap:3px}
+.seat-hole-cards>span{font-size:.65rem;color:var(--muted)}
+.seat-hole-cards .hand{gap:3px;flex-wrap:nowrap}
+.poker-tabletop .seat-hole-cards .playing-card{width:34px;height:44px;padding:2px;border-radius:5px;font-size:1rem}
+@media(min-width:901px) and (max-width:1100px){
+  .poker-seat.revealed{width:148px}
+  .poker-tabletop .seat-hole-cards .playing-card{width:30px;height:42px;font-size:.9rem}
+}
+.showdown-result{font-size:.85rem;padding:10px}
+.showdown-result>strong{font-size:.85rem}
+.poker-showdown details{margin-top:8px;font-size:.8rem}
+.poker-showdown details p{margin:5px 0}
+.hand-net{font-size:.84rem;font-weight:600;color:var(--ink);margin-top:5px}
+.poker-wallet{font-size:.84rem;margin-top:5px;color:var(--ink)}
+.bet-field{display:flex;flex-direction:column;gap:3px}
+.bet-field small{color:var(--muted);font-size:.77rem}
+.field-error{color:var(--danger);font-size:.8rem}
+.field-error:empty{display:none}
+.bank-feedback{margin-top:8px}
+.welcome-funds{margin-top:24px;border-top:1px solid var(--line);padding-top:15px}
+.welcome-funds summary{cursor:pointer;color:var(--muted)}
+.welcome-funds p{margin-top:10px}
+#game-help{width:min(680px,calc(100vw - 24px));max-height:85vh;overflow:auto;border:1px solid var(--line);border-radius:15px;padding:22px;background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}
+#game-help::backdrop{background:#1a211ecc}
+#save-dialog{width:min(620px,calc(100vw - 24px));max-height:85vh;overflow:auto;border:1px solid var(--line);border-radius:15px;padding:22px;background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}
+#save-dialog::backdrop{background:#1a211ecc}
+#save-dialog h2{font-size:1.1rem;margin:0}
+#save-dialog p{line-height:1.65}
+#save-dialog .field-error{margin-top:12px}
+.save-target{padding:10px 12px;border-radius:8px;background:var(--accent-soft);overflow-wrap:anywhere}
+.app-toast{position:fixed;bottom:20px;right:20px;max-width:min(520px,calc(100vw - 32px));padding:12px 16px;border:1px solid var(--accent);border-radius:10px;background:var(--panel);color:var(--accent);box-shadow:var(--shadow);z-index:20;font-size:.9rem;overflow-wrap:anywhere}
+.achievement-group{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.achievement-group summary{cursor:pointer;font-weight:600}
+.achievement-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;margin-top:10px}
+.achievement{display:flex;flex-direction:column;gap:5px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel);font-size:.82rem}
+.achievement span,.achievement small{color:var(--muted)}
+.achievement.unlocked{border-color:var(--accent);background:var(--accent-soft)}
+.achievement.unlocked strong,.achievement.unlocked small{color:var(--accent)}
+.new-achievements{border-top:1px solid var(--line);margin-top:18px;padding-top:14px;font-size:.9rem;color:var(--accent)}
+#game-help h2{margin:0}
+#game-help>.row{margin-bottom:15px}
+#game-help .rule-list{color:var(--ink);line-height:1.65}
+#game-help li{margin-bottom:9px}
+.changed{animation:resource-change .9s ease-out}
+@keyframes resource-change{0%,40%{box-shadow:0 0 0 3px #b68537;background-color:#fff0c8}100%{box-shadow:none}}
+@media(prefers-reduced-motion:reduce){.changed{animation:none;outline:2px solid #b68537}}
+@media(max-width:900px){
+  .gem-mobile-resources{display:flex;flex-wrap:wrap;gap:5px 10px;position:sticky;top:0;z-index:3;background:var(--panel);border:1px solid #94b6a5;border-radius:9px;padding:8px;margin-top:8px;box-shadow:0 3px 8px #26302d12;font-size:.78rem}
+  .gem-mobile-resources>div{width:100%;display:flex;gap:4px;align-items:center}
+  .gem-mobile-resources .token{height:23px;font-size:.76rem}
+  .gem-mobile-resources a{margin-left:auto;color:var(--accent);font-weight:600}
+  .gem-player-mat{scroll-margin-top:110px}
+  .gem-opponents{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .gem-opponents .inventory-line{flex-wrap:wrap;gap:2px}
+  .gem-opponents .inventory-line>span:first-child{width:100%}
+  .gem-opponents .token{font-size:.68rem;min-width:27px}
+  .gem-opponents .opponent-mat{padding:6px}
+  .gem-opponents .row{gap:1px}
+  .gem-tier-tabs{display:flex;gap:8px;margin-bottom:10px}
+  .gem-tier-tabs button{flex:1}
+  .market-tier{display:none}
+  .market-tier.active-tier{display:flex}
+  .market-tier .market{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .gem-card{min-height:136px}
+  .gem-card .actions{flex-wrap:nowrap}
+  .gem-card .actions button{min-width:0}
+  .gem-card .card-caption{font-size:.76rem}
+  .poker-tabletop{overflow:visible;padding-bottom:0}
+  .poker-arena{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;height:auto;min-width:0;margin:12px 0}
+  .poker-felt{display:none}
+  .poker-center{position:static;transform:none;width:auto;grid-column:1/-1;grid-row:1;background:#dce9df;padding:10px;border-radius:12px}
+  .poker-seat,.poker-seat.current{position:static;transform:none;width:auto;min-width:0;padding:7px 9px;display:grid;grid-template-columns:1fr auto;gap:2px 6px}
+  .poker-seat.revealed{width:auto;grid-template-columns:minmax(0,1fr) auto}
+  .seat-hole-cards>span{font-size:.7rem}
+  .seat-name{grid-column:1/-1;font-size:.8rem}
+  .seat-stack{font-size:.95rem;grid-row:2;grid-column:2}
+  .seat-action{grid-row:2;grid-column:1;font-size:.76rem;align-self:center}
+  .seat-bet{grid-column:1/-1;font-size:.71rem}
+  .poker-tabletop .playing-card{width:48px;height:63px}
+  .poker-controls{min-width:0;flex:1}
+  .poker-action-dock{align-items:flex-start;gap:12px}
+  .bet-field{width:100%;margin-top:4px}
+  .hero-finance{display:flex;width:100%;border-left:0;border-top:1px solid var(--line);padding:6px 0 0;flex-direction:row;gap:8px;align-items:center}
+}
+@media(max-width:580px){
+  .gem-card{padding:8px;min-height:140px}
+  .gem-card-head strong{font-size:.88rem}
+  .gem-card .actions button{font-size:.75rem;padding:5px}
+  .gem-card .card-caption{font-size:.76rem}
+  .gem-card .cost .token{font-size:.8rem}
+  .gem-opponents .row>span{font-size:.66rem}
+  .gem-opponents .inventory-line{display:none}
+  .gem-opponents .opponent-mat{font-size:.73rem}
+  .noble-strip .token{font-size:.74rem}
+  .scout-stage{padding:8px}
+  .scout-stage .panel{padding:10px}
+  .scout-stage .hand-card{width:52px}
+  .scout-stage .hand-card small,.scout-stage .hand-card .small{font-size:.66rem}
+  .scout-player>.row>.muted{font-size:.77rem}
+  .scout-shows{max-height:144px;overflow:auto;padding:2px}
+  .scout-insertion>span{min-width:28px}
+  .action-preview{align-items:stretch}
+  .action-preview button{width:100%}
+  .poker-action-dock .hero-cards{width:100%;display:flex;align-items:center;gap:8px}
+  .hero-cards>.mat-label{font-size:.8rem}
+  .poker-controls{width:100%;flex-basis:100%}
+  .poker-controls .actions{gap:8px}
+  .poker-controls button{padding:8px 12px}
+  .poker-controls input[type=number]{width:85px}
+  .poker-tabletop .playing-card{width:46px;height:60px}
+  .community-cards{gap:5px}
+  .seat-stack small{font-size:.7rem}
+  .poker-recent{gap:5px}
+}
+.mobile-opponent-detail{display:none}
+@media(max-width:580px){
+  .mobile-opponent-detail{display:block;font-size:.68rem;margin-top:5px}
+  .mobile-opponent-detail summary{cursor:pointer;color:var(--accent)}
+  .gem-opponents .mobile-opponent-detail .inventory-line{display:flex}
+}
+.poker-center{top:50%}
+.pot-total{display:flex;align-items:baseline;justify-content:center;gap:8px;margin:4px 0}
+.pot-total .pot-value{font-size:1.3rem;line-height:1.3}
+.poker-center .community-cards{margin:6px 0}
+.poker-mode-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 20px}
+.tournament-status{display:flex;align-items:center;gap:8px 18px;flex-wrap:wrap;background:var(--accent-soft);border-radius:10px;padding:10px 14px;margin-top:8px;font-size:.85rem}
+.tournament-status small{color:var(--muted);font-size:.75rem}
+.poker-seat.eliminated{background:#eeeee8;border-style:dashed;border-color:#c4c9bf}
+.poker-seat.eliminated .seat-action{color:var(--muted)}
+.tournament-exit{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 10px}
+.tournament-exit button{padding:5px 9px;font-size:.78rem}
+.tournament-exit small{color:var(--muted)}
+.achievement-section{margin:18px 0 6px;font-size:.9rem;color:var(--accent)}

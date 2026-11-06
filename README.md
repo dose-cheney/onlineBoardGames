@@ -22,9 +22,11 @@
 
 ## 下载与游玩
 
-- [手机打开 v1.3.0 单机试玩](https://dose-cheney.github.io/onlineBoardGames/?v=1.3.0)
+- [手机打开最新版单机试玩](https://dose-cheney.github.io/onlineBoardGames/)
 - [下载最新离线版本](https://github.com/dose-cheney/onlineBoardGames/releases/latest)
 - [查看源码与反馈问题](https://github.com/dose-cheney/onlineBoardGames)
+
+固定试玩地址不带参数，默认打开当前最新版；加 `?v=1.0.0`、`?v=1.1.0`、`?v=1.3.0` 可打开对应版本的独立网页快照。不存在的版本会显示提示。地址栏不需要 `rev`。发布前运行 `python3 scripts/build-versions.py` 更新快照和默认版本列表。直接双击 index.html 的离线入口会打开 app.html。
 
 当前发布版本为 v1.3.0，新增武穴麻将的单机、联机与本场斤数结算。现包含武穴麻将、胡闹运动会、Flip 7、璀璨宝石、马戏星探和德州扑克六款游戏。原有 37 项成就保留。v1.0.0、v1.1.0 的历史标签、发布页和下载包继续保留。
 

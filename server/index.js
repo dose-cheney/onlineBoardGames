@@ -7,7 +7,7 @@ const { upgrade } = require('./websocket');
 const root = path.resolve(__dirname, '..');
 const hub = new Hub();
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
+  '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
 
 function cookie(request) {
   const item = (request.headers.cookie || '').split(';').map(x => x.trim()).find(x => x.startsWith('tablecorner-id='));
@@ -28,9 +28,11 @@ function body(request) {
   });
 }
 
-const allowed = name => name === 'landing.html' || name === 'index.html' || name === 'online.html' ||
+const webFile = name => name === 'landing.html' || name === 'index.html' || name === 'online.html' ||
   /^(styles|visual|tabletop|new-games|online|ui|mahjong)\.css$/.test(name) ||
   /^js\/[a-z0-9-]+\.js$/.test(name) || /^assets\/[a-z0-9-]+\.(svg|png)$/.test(name);
+
+const allowed = name => webFile(name) || name === 'app.html' || name === 'versions.json' || /^versions\/v\d+\.\d+\.\d+\/(.+)$/.test(name) && webFile(name.replace(/^versions\/v\d+\.\d+\.\d+\//, ''));
 
 function serve(request, response) {
   if (request.method !== 'GET' && request.method !== 'POST') { response.writeHead(405); response.end(); return; }
@@ -58,7 +60,7 @@ function serve(request, response) {
     if (error) { response.writeHead(404); response.end('Not found'); return; }
     response.writeHead(200, { 'Content-Type': mime[path.extname(name)] || 'application/octet-stream',
       'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
-      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'none'" });
+      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'" });
     response.end(data);
   });
 }

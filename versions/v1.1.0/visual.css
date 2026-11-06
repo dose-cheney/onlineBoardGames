@@ -1,0 +1,5 @@
+.game-banner{width:150px;height:80px;margin:0}
+.game-surface .card{background-repeat:no-repeat;background-position:center;background-size:cover}
+body[data-visual=on] .game-splendor .card:not(.face-down){background-image:linear-gradient(90deg,rgba(255,255,255,.96),rgba(255,255,255,.83)),url('assets/splendor.svg')}
+body[data-visual=on] .game-scout .hand-card{background-image:linear-gradient(90deg,rgba(255,255,255,.95),rgba(255,255,255,.82)),url('assets/scout.svg')}
+body[data-visual=on] .game-poker .playing-card{background-image:linear-gradient(90deg,rgba(255,255,255,.96),rgba(255,255,255,.86)),url('assets/poker.svg')}
