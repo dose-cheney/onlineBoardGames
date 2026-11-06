@@ -22,13 +22,13 @@
 
 ## 下载与游玩
 
-- [手机打开 v1.3.1 单机试玩](https://dose-cheney.github.io/onlineBoardGames/?v=1.3.1)
+- [手机打开 v1.3.2 单机试玩](https://dose-cheney.github.io/onlineBoardGames/?v=1.3.2)
 - [下载最新离线版本](https://github.com/dose-cheney/onlineBoardGames/releases/latest)
 - [查看源码与反馈问题](https://github.com/dose-cheney/onlineBoardGames)
 
-当前发布版本为 v1.3.1，新增武穴麻将的单机、联机与本场斤数结算。现包含武穴麻将、胡闹运动会、Flip 7、璀璨宝石、马戏星探和德州扑克六款游戏。原有 37 项成就保留。v1.0.0、v1.1.0 的历史标签、发布页和下载包继续保留。
+当前发布版本为 v1.3.2，新增武穴麻将的单机、联机与本场斤数结算。现包含武穴麻将、胡闹运动会、Flip 7、璀璨宝石、马戏星探和德州扑克六款游戏。原有 37 项成就保留。v1.0.0、v1.1.0 的历史标签、发布页和下载包继续保留。
 
-离线游玩：下载发布附件 `tablecorner-offline-v1.3.1.zip`，完整解压后双击文件夹中的 `index.html`。不要直接在压缩包预览中打开，也不要只复制入口文件；`js`、`assets` 和 CSS 文件需要一并保留。游玩无需 Node.js。
+离线游玩：下载发布附件 `tablecorner-offline-v1.3.2.zip`，完整解压后双击文件夹中的 `index.html`。不要直接在压缩包预览中打开，也不要只复制入口文件；`js`、`assets` 和 CSS 文件需要一并保留。游玩无需 Node.js。
 
 网页版与离线版的浏览器进度分别保存，不会自动同步。切换版本、电脑或浏览器前，请先“备份全部”导出 JSON，再在目标版本中“加载存档”。发布包不包含个人存档。
 

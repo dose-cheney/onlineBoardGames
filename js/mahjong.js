@@ -317,7 +317,7 @@
     else if(suit===0)art='<text x="30" y="29" text-anchor="middle" font-family="serif" font-size="29" font-weight="bold" fill="#253644">'+digits[rank-1]+'</text><text x="30" y="57" text-anchor="middle" font-family="serif" font-size="27" font-weight="bold" fill="#b62f28">萬</text>';
     else if(suit===2&&rank===1)art=bird;
     else art=positions[rank].map(([x,y],i)=>suit===1?'<circle cx="'+x+'" cy="'+y+'" r="'+(rank===1?18:6)+'" fill="none" stroke="'+(['#294d80','#167340','#b62f28'][i%3])+'" stroke-width="3"/><circle cx="'+x+'" cy="'+y+'" r="'+(rank===1?10:2)+'" fill="'+(['#294d80','#167340','#b62f28'][i%3])+'"/>':'<rect x="'+(x-3)+'" y="'+(y-6)+'" width="6" height="12" rx="2" fill="'+(rank===5&&i===2?'#b62f28':'#167340')+'"/><path d="M'+(x-4)+' '+y+'h8" stroke="#f3deb2" stroke-width="1.5"/>').join('');
-    const marks=[];if(options.skin)marks.push('皮');if(options.joker)marks.push('宝');if(options.gang)marks.push('杠');
+    const marks=options.joker?['宝']:options.skin?['皮']:options.gang?['杠']:[];
     const cls='mj-tile mj-suit-'+suit+(options.joker?' is-joker':'')+(options.selected?' is-selected':'');
     const body='<svg viewBox="0 0 60 65" aria-hidden="true">'+art+'</svg><span class="mj-tile-name">'+names[t]+'</span>'+(marks.length?'<small class="mj-mark">'+marks.join('·')+'</small>':'');
     return options.button?'<button class="'+cls+'" data-action="m-select" data-tile="'+id+'" data-step="'+options.step+'" aria-label="选择'+names[t]+'" aria-pressed="'+!!options.selected+'" title="'+names[t]+'">'+body+'</button>':'<span class="'+cls+'" role="img" aria-label="'+names[t]+'" title="'+names[t]+'">'+body+'</span>';
