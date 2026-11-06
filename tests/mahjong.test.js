@@ -207,7 +207,7 @@ test('selection is a preview, latest discards belong to seats and special faces 
   const {hub,users,room}=online(false,4),s=room.game,seat=s.current,tile=s.players[seat].hand[0],before=JSON.stringify(s);
   hub.preview(room,users[seat],{action:'m-select',data:{tile,step:s.step}});assert.equal(JSON.stringify(s),before);
   const html=users[seat].peer.packets.filter(p=>p.type==='state').at(-1).gameHtml;
-  assert(html.includes('is-selected'));assert(!html.includes('庄家不加斤'));assert(!html.includes('class="mj-river"'));
+  assert(html.includes('is-selected'));assert(!html.includes('庄家不加斤'));assert(html.includes('class="mj-river"'));
   assert.equal((html.match(/最新出牌/g)||[]).length,4);assert(html.includes('data-action="m-select"'));
   assert(M.tileHtml(33*4).includes('<rect'));assert(M.tileHtml(18*4).includes('<path'));assert(!M.tileHtml(33*4).includes('▱'));
   hub.closeRoom(room,users[0]);

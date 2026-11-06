@@ -7,3 +7,6 @@
 
 /* Solid surfaces remain legible when the global no-art mode removes gradients. */
 .mj-board{background-color:#123d35}.mj-tile{background-color:#fff8e6}.mj-back{background-color:#257e65}.mj-own-hand button.mj-tile{background-color:#fff8e6}.mj-own-hand button.mj-tile.is-selected{background-color:#ffedb0}
+
+.mj-center{flex-direction:column;gap:10px}.mj-river{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;max-height:240px;overflow:auto;width:100%;letter-spacing:0}.mj-river-entry{display:inline-flex}.mj-river .mj-tile{width:25px;height:39px;flex-basis:25px;border-bottom-width:2px}.mj-river .mj-tile-name{font-size:7px;line-height:8px}.mj-river-entry.is-taken{opacity:.45}.mj-own-hand{padding-top:6px}.mj-own-hand .mj-tile.is-drawn{position:relative;top:-5px}
+@media(max-width:700px){.mj-river{max-height:110px}.mj-river .mj-tile{width:22px;height:34px;flex-basis:22px}.mj-own-hand .mj-tile.is-drawn{top:-4px}}

@@ -38,5 +38,5 @@
   }
   function ranks(values,secondary){return values.map((v,i)=>1+values.reduce((n,o,j)=>n+(j!==i&&(o>v||(o===v&&secondary&&secondary[j]<secondary[i]))?1:0),0))}
   function gainAchievement(p,id){if(!p.achievements.includes(id))p.achievements.push(id)}
-  window.GameCore={version:'1.3.2',Games,names,limits,escape,shuffle,clamp,sum,fmtTime,formatMoney,playerBadge,createProfile,attachSlots,validProfile,ranks,gainAchievement};
+  window.GameCore={version:'1.3.0',Games,names,limits,escape,shuffle,clamp,sum,fmtTime,formatMoney,playerBadge,createProfile,attachSlots,validProfile,ranks,gainAchievement};
 })();
