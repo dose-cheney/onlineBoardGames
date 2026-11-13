@@ -186,9 +186,10 @@ body:has(.mj-board){min-height:100dvh;background:var(--paper)}
     flex:1 0 auto;
     grid-template-rows:auto minmax(min-content,1fr) auto;
   }
-  .mj-seat:not(.mj-seat-0){align-self:center}
-  .mj-seat-2{align-self:start}
-  .mj-board{grid-template-columns:minmax(0,.7fr) minmax(0,2fr) minmax(0,.7fr)}
+  .mj-seat:not(.mj-seat-0){align-self:stretch}
+  .mj-seat-2{justify-self:center;width:82%;min-height:90px}
+  .mj-board{grid-template-columns:minmax(0,1fr) minmax(0,1.65fr) minmax(0,1fr)}
+  .mj-center{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr)}
   .game-shell:has(.mj-game){padding-top:8px;padding-bottom:6px}
   .game-shell:has(.mj-game)>.topbar,.game-shell:has(.mj-game)>.game-header{margin-bottom:6px}
   .game-shell:has(.mj-game)>.topbar,.online-playing:has(.mj-game)>.topbar{padding-block:4px}
@@ -220,6 +221,10 @@ body:has(.mj-board){min-height:100dvh;background:var(--paper)}
   .mj-board.is-settled .mj-seat{padding:5px 6px}
   .mj-board.is-settled .mj-seat:not(.mj-seat-0) .mj-meld .mj-tile{--tile-width:19px;--tile-height:27px}
   .mj-board.is-settled .mj-seat-0 .mj-meld .mj-tile{--tile-width:29px;--tile-height:39px}
+  .mj-board.has-winner .mj-center{
+    grid-template-areas:'left top right' 'left own right' 'winner winner winner';
+    grid-template-rows:minmax(48px,1fr) minmax(48px,1fr) auto;
+  }
 }
 @media (min-height:761px){
 @container (min-width:1160px){
@@ -240,7 +245,6 @@ body:has(.mj-board){min-height:100dvh;background:var(--paper)}
   .mj-controls{font-size:14px}
   .mj-controls button{min-height:38px}
   .mj-board.is-settled{gap:8px;padding:10px}
-  .mj-board.is-settled .mj-seat{min-height:0}
   .mj-board.is-settled .mj-center{min-height:108px}
   .mj-board.is-settled .mj-own-hand .mj-tile{--tile-width:min(53px,calc((100cqw - 52px)/14))}
   .mj-board.is-settled .mj-meld .mj-tile{--tile-width:25px;--tile-height:36px}
@@ -253,6 +257,7 @@ body:has(.mj-board){min-height:100dvh;background:var(--paper)}
 @media(min-width:761px) and (max-height:740px){
   .mj-board{gap:5px;padding:5px}
   .mj-seat{padding:4px 6px}
+  .mj-seat-2{min-height:76px}
   .mj-own-hand .mj-tile{--tile-width:min(35px,calc((100cqw - 52px)/14))}
   .mj-melds{gap:3px 4px}
   .mj-meld .mj-tile{--tile-width:21px;--tile-height:30px}
@@ -268,7 +273,7 @@ body:has(.mj-board){min-height:100dvh;background:var(--paper)}
   .mj-board.is-settled .mj-controls{font-size:12px}
   .mj-board.is-settled .mj-controls button{min-height:30px;padding:4px 7px}
   .mj-board.is-settled .mj-seat-0 header{margin-bottom:3px}
-  .mj-board.has-winner .mj-center{grid-template-rows:minmax(48px,1fr) auto minmax(48px,1fr);gap:3px}
+  .mj-board.has-winner .mj-center{gap:3px}
   .game-shell:has(.mj-game)>.footer-note,.online-playing:has(.mj-game)>.footer-note{display:none}
 }
 @media (761px <= width <= 1180px) and (max-height:740px){
@@ -294,8 +299,7 @@ body:has(.mj-board){min-height:100dvh;background:var(--paper)}
   .mj-board.is-settled .mj-seat header{gap:2px 4px}
   .mj-board.is-settled .mj-seat header span{font-size:10px}
   .mj-board.is-settled .mj-round-amount{font-size:12px}
-  .mj-seat:not(.mj-seat-0) .mj-meld .mj-tile{--tile-width:16px;--tile-height:22px}
-  .mj-board.is-settled .mj-seat:not(.mj-seat-0) .mj-meld .mj-tile{--tile-width:16px;--tile-height:22px}
+  .mj-board.is-settled .mj-seat:not(.mj-seat-0) .mj-meld .mj-tile{--tile-width:18px;--tile-height:25px}
   .mj-winning-hand{padding:4px}
   .mj-winning-hand>strong{font-size:12px}
   .mj-winning-rack{gap:3px}
