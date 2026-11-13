@@ -1,6 +1,8 @@
 (function(){
   'use strict';
   const C=window.GameCore,KEY='tablecorner-save-v1';
+  const mahjongVoice=window.MahjongVoice;
+  let voiceGame=null, voiceCursor=0;
   const rules={
     mahjong:'四人武穴麻将。逆时针行牌，吃上家、碰杠、胡牌。普通小胡须二五八将，已开口小胡最多一张赖子；大胡可带多个赖子，七对算大胡，抢杠按杠上开花。门面清只可自摸。庄家不加斤、无承包、无海底捞和全求人。16斤封顶；门面清或七对赢时三家都付款，其他牌型由已开口者和点炮者付款。',
     splendor:'每回合只执行一项行动：拿 3 种不同宝石、在库存至少 4 枚时拿 2 枚同色、预留卡并领取金筹码，或购买卡牌。卡牌提供永久折扣；满足条件时得到贵族。有人到达 15 分后完成当前轮，分数最高者获胜，同分比较已购卡牌数。',
@@ -73,9 +75,11 @@
   }
   function game(){
     const a=profile.active,g=a.game,tour=a.type==='poker'&&isTournament(g);
-    let h='<div class="game-header compact-header"><div class="row"><button data-action="app-home">← 换一张桌</button><h1>'+C.names[a.type]+'</h1><span class="muted">'+({easy:'初级',medium:'中级',hard:'高级'})[a.difficulty]+' · '+a.players+' 人 · <span class="timer">'+C.fmtTime(a.elapsedMs)+'</span></span></div><div class="row"><button data-action="app-help">规则 / 帮助</button><button data-action="app-save" data-game="'+a.type+'">保存此游戏</button>'+(!['poker','mahjong'].includes(a.type)?'<button class="danger" data-action="app-abandon">放弃本局</button>':'')+'</div></div>';
+    let h='<div class="game-header compact-header"><div class="row"><button data-action="app-home">← 换一张桌</button><h1>'+C.names[a.type]+'</h1><span class="muted">'+({easy:'初级',medium:'中级',hard:'高级'})[a.difficulty]+' · '+a.players+' 人 · <span class="timer">'+C.fmtTime(a.elapsedMs)+'</span></span></div><div class="row">'+(a.type==='mahjong'?(mahjongVoice?.button('data-action')||''):'')+'<button data-action="app-help">规则 / 帮助</button><button data-action="app-save" data-game="'+a.type+'">保存此游戏</button>'+(!['poker','mahjong'].includes(a.type)?'<button class="danger" data-action="app-abandon">放弃本局</button>':'')+'</div></div>';
     if(tour)h+='<div class="tournament-exit"><button class="danger" data-action="app-abandon">'+(g.players[0].eliminated?'按第 '+g.players[0].place+' 名结算离桌…':'退出锦标赛…')+'</button><small>'+(g.players[0].eliminated?'名次已确定，离桌即记录本场成绩':'可随时保存或换桌暂停')+'</small></div>';
-    h+='<div class="game-surface game-'+a.type+'">'+C.Games[a.type].render(g,a.type==='poker'&&!tour?{...ui,wallet:profile.wallet,rebuyAmount:rebuyAmount(g)}:ui)+'</div>';
+    const gameUi=a.type==='poker'&&!tour?{...ui,wallet:profile.wallet,rebuyAmount:rebuyAmount(g)}:
+      a.type==='mahjong'?{...ui,voiceBusy:mahjongVoice?.busy}:ui;
+    h+='<div class="game-surface game-'+a.type+'">'+C.Games[a.type].render(g,gameUi)+'</div>';
     if(a.type==='poker'&&!tour&&g.betweenHands){const n=rebuyAmount(g);h+='<details id="poker-funding" class="panel poker-funding" '+(ui.bankOpen?'open':'')+'><summary>钱包 '+C.formatMoney(profile.wallet)+' · 未还欠款 '+C.formatMoney(profile.bank.outstanding)+' · 补买与银行</summary><p class="muted">补买从你的钱包扣除，只增加你的桌面筹码。通常补至初始买入 '+g.buyin+'；钱包不足时可用剩余余额补买。电脑仅在筹码归零后，下一手自动补买 '+g.buyin+'，不使用你的钱包。</p><div class="row"><button data-action="app-rebuy" '+(n<=0?'disabled':'')+'>用钱包补买 '+n+'（补后 '+(g.players[0].stack+n)+'）</button><label>银行金额 <input id="bank-amount" type="number" min="1" step="1" value="'+C.escape(ui.bankAmount??200)+'" aria-describedby="bank-error"></label><button data-action="app-borrow">借款</button><button data-action="app-repay">还款</button></div>'+bankFeedback('bank-error',ui.bankError)+'</details>'}
     if(a.paused&&screen==='game')h+='<div class="paused"><div class="panel"><span class="eyebrow">PAUSED</span><h1>游戏已暂停</h1>'+(error?'<div class="notice error" role="alert">'+C.escape(error)+'</div>':'')+'<p class="subtle">计时和电脑行动已停止，牌面暂时遮盖。</p><div class="actions"><button class="primary" data-action="app-resume">继续游戏</button><button data-action="app-home">返回首页</button><button data-action="app-save">保存存档</button></div></div></div>';
     return h;
@@ -99,7 +103,31 @@
     return '<dialog id="save-dialog" aria-labelledby="save-title"><div class="row between"><h2 id="save-title">保存 · '+(C.names[type]||'全部存档')+'</h2><button data-action="app-close-save" '+(saveBusy?'disabled':'')+'>关闭</button></div><p>'+(type?'保存这一款的进度、统计与成就'+(type==='poker'?'，以及钱包和借款账目':'')+'。':'保存六款游戏的进度、统计、成就和资金账目。')+'</p><p class="save-target">当前文件：<strong>'+C.escape(file||'尚未选择')+'</strong></p><p class="muted">'+(supported?'首次选择文件；之后“覆盖保存”会更新同一个 JSON 文件。“另存为”可更换位置，“下载副本”可保留另一个版本。':'此浏览器支持下载副本。若要直接覆盖同一个 JSON 文件，请用 Chrome / Edge 打开本页面。')+'</p><div class="actions">'+(supported?'<button class="primary" data-action="app-save-write" '+(saveBusy?'disabled':'')+'>'+(saveBusy?'正在保存…':file?'覆盖保存':'选择文件并保存')+'</button><button data-action="app-save-as" '+(saveBusy?'disabled':'')+'>另存为…</button>':'')+'<button '+(!supported?'class="primary" ':'')+'data-action="app-save-copy" '+(saveBusy?'disabled':'')+'>下载副本</button></div><div class="field-error" role="alert">'+C.escape(ui.save.error||'')+'</div><p class="action-hint">保存窗口打开期间，计时和电脑行动暂停。</p></dialog>';
   }
   function detailKey(e){return e.dataset.detailId||e.querySelector('summary').textContent}
+  function updateMahjongVoice(){
+    if(!mahjongVoice)return;
+    const active=profile?.active;
+    const game=screen==='game'&&active?.type==='mahjong'?active.game:null;
+    if(game!==voiceGame) {
+      mahjongVoice.stop();
+      voiceGame=game;
+      voiceCursor=game?(C.Games.mahjong.voiceEvents(game).at(-1)?.id??0):0;
+    }
+    if(!game||active.paused||ui.help||ui.save||ui.pickingFile||document.hidden) {
+      mahjongVoice.stop();
+      return;
+    }
+    if(mahjongVoice.busy)return;
+    for(const event of C.Games.mahjong.voiceEvents(game)) {
+      if(event.id<=voiceCursor)continue;
+      if(mahjongVoice.play(event.text,()=>{
+        if(voiceGame===game)voiceCursor=Math.max(voiceCursor,event.id);
+        render();
+      }))break;
+      voiceCursor=event.id;
+    }
+  }
   function render(){
+    updateMahjongVoice();
     const focused=document.activeElement,focusId=focused&&focused.id,focusData=focused&&focused.dataset&&focused.dataset.action?{...focused.dataset}:null;
     const oldNodes=document.querySelectorAll?Array.from(document.querySelectorAll('.own-gems .token,.own-bonuses .token,.gem-market .gem-card,.poker-seat .seat-stack')).map(e=>e.textContent):[];
     const detailStates=document.querySelectorAll?new Map(Array.from(document.querySelectorAll('.game-surface details,.achievement-group')).map(e=>[detailKey(e),e.open])):new Map();
@@ -129,7 +157,10 @@
     clearTimeout(autoTimer);autoTimer=null;
     if(!profile||!profile.active||screen!=='game'||profile.active.paused||ui.help||ui.save||ui.pickingFile)return;
     const a=profile.active,g=a.game;
-    if(a.type==='mahjong')window.MahjongResults?.save(C.Games.mahjong.summary(g));
+    if(a.type==='mahjong'){
+      window.MahjongResults?.save(C.Games.mahjong.summary(g));
+      if(mahjongVoice?.busy)return;
+    }
     if(g.finished){complete();render();return}
     if(a.type==='scout'&&(g.orientationPending||g.roundPending))return;
     if(a.type==='poker'&&g.betweenHands){
@@ -163,6 +194,8 @@
     else {if(amount>profile.wallet||amount>b.outstanding)throw Error('还款不能超过钱包余额或未还欠款');profile.wallet-=amount;b.totalRepaid+=amount;b.outstanding-=amount;if(b.outstanding===0)C.gainAchievement(profile,'debt_free')}
   }
   function dispatch(action,data){
+    if(action==='mahjong-voice'){mahjongVoice?.toggle(render);render();return;}
+    if(action.startsWith('m-')&&mahjongVoice?.busy)return;
     if(ui.pickingFile)return;
     if(ui.save){
       if(saveBusy)return;

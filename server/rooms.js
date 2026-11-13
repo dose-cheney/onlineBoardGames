@@ -532,7 +532,12 @@ class Hub {
       }
     }
     const mahjongResult = room.options.type === 'mahjong' && room.game && this.seat(room,user.id) >= 0 ? C.Games.mahjong.summary(room.game) : undefined;
-    user.peer.send({ type: 'state', room: view, gameHtml, ...(mahjongResult ? { mahjongResult } : {}) });
+    const mahjongVoice = room.options.type === 'mahjong' && room.game ? {
+      sessionId: room.game.sessionId,
+      event: C.Games.mahjong.voiceEvents(room.game).at(-1) ?? null
+    } : null;
+    user.peer.send({ type: 'state', room: view, gameHtml, ...(mahjongResult ? { mahjongResult } : {}),
+      ...(mahjongVoice ? { mahjongVoice } : {}) });
   }
 
   touch(room) {

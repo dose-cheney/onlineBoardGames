@@ -1,16 +1,17 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 
-function harness(saved){
+function harness(saved,speech){
   let raw=saved?JSON.stringify(saved):null,accept=true,downloads=[],confirmations=[],clock=10000;
-  const events={},timers=new Map(),delays=new Map(),elements={app:{innerHTML:''},'import-file':{value:'',addEventListener(name,fn){events['file-'+name]=fn},click(){}}};
-  const context={console,Math,Date:class extends Date{static now(){return clock}},localStorage:{getItem(){return raw},setItem(k,v){raw=v},removeItem(){raw=null}},
+  const events={},timers=new Map(),delays=new Map(),preferences=new Map(),elements={app:{innerHTML:''},'import-file':{value:'',addEventListener(name,fn){events['file-'+name]=fn},click(){}}};
+  const context={console,Math,Date:class extends Date{static now(){return clock}},localStorage:{getItem(k){return k==='tablecorner-save-v1'?raw:preferences.get(k)},setItem(k,v){if(k==='tablecorner-save-v1')raw=v;else preferences.set(k,v)},removeItem(){raw=null}},
     document:{hidden:false,body:{dataset:{},appendChild(){}},getElementById(id){return elements[id]},querySelector(){return null},addEventListener(name,fn){events[name]=fn},createElement(){return {click(){downloads.push({name:this.download,data:context.blob})},remove(){}}}},
     setTimeout(fn,delay){const id=timers.size+1;timers.set(id,fn);delays.set(id,delay);return id},clearTimeout(id){timers.delete(id);delays.delete(id)},setInterval(fn){events.tick=fn},
     Blob:class{constructor(parts){context.blob=parts.join('')}},URL:{createObjectURL(){return 'blob:test'},revokeObjectURL(){}},
     FileReader:class{readAsText(file){this.result=file.text;this.onload()}},confirm(message){confirmations.push(message);return accept},addEventListener(){}};
+  if(speech)Object.assign(context,{speechSynthesis:speech,SpeechSynthesisUtterance:class {constructor(text){this.text=text}}});
   context.window=context;vm.createContext(context);
-  for(const file of ['core','achievements','splendor','scout','poker','athlete-data','athlete','flip7','mahjong','save-files','app'])vm.runInContext(fs.readFileSync(__dirname+'/../js/'+file+'.js','utf8'),context,{filename:file+'.js'});
+  for(const file of ['core','achievements','splendor','scout','poker','athlete-data','athlete','flip7','mahjong','save-files','mahjong-voice','app'])vm.runInContext(fs.readFileSync(__dirname+'/../js/'+file+'.js','utf8'),context,{filename:file+'.js'});
   return {C:context.GameCore,click(action,data={}){events.click({target:{closest(){return {dataset:{action,...data}}}}})},field(id,value){elements[id]={value:String(value)}},get(){return JSON.parse(raw)},html(){return elements.app.innerHTML},accept(v){accept=v},confirmations,downloads,
     save(game){this.click('app-save',game?{game}:{});this.click('app-save-copy')},import(data,game){this.click('app-load',game?{game}:{});events['file-change']({target:{files:[{text:JSON.stringify(data)}]}})},tick(ms){clock+=ms;events.tick()},hide(){context.document.hidden=true;events.visibilitychange()},delays(){return [...delays.values()]},run(delay){const id=[...delays].find(([id,d])=>d===delay)?.[0];if(id===undefined)return false;const fn=timers.get(id);timers.delete(id);delays.delete(id);clock+=delay;fn();return true}};
 }
@@ -329,4 +330,37 @@ console.log('New player setup checks passed: failed starts preserve editable set
   assert(h.html().includes('achievement-section">锦标赛'));assert(h.html().includes('现金桌与通用'));assert(h.html().includes('满桌称王'));
   h.save();const backup=JSON.parse(h.downloads.at(-1).data);const restored=harness(backup);
   assert.deepEqual(restored.get().achievements,backup.achievements,'new tournament achievements survive JSON and repeated historical checks');
+}
+
+{
+  const spoken=[];
+  const speech={getVoices(){return []},speak(utterance){spoken.push(utterance)},cancel(){}};
+  const M=C.Games.mahjong;
+  let game;
+  do { game=M.create(4); } while(game.current!==0);
+  const profile=C.createProfile();
+  profile.active={type:'mahjong',players:4,difficulty:'easy',elapsedMs:0,paused:false,game};
+  const h=harness(profile,speech);
+  h.click('app-resume');
+  const discard=M.ownOptions(game,0).find(option=>option.action==='m-discard');
+  h.click(discard.action,discard);
+  assert.equal(spoken[0].text,M.names[M.type(discard.tile)]);
+  assert.match(h.html(),/正在播报/);
+  const during=h.get().games.mahjong.game;
+  assert.equal(h.run(500),false,'the bot does not run during a call');
+  h.click('m-select',{step:during.step,tile:during.players[0].hand[0]});
+  assert.deepEqual(h.get().games.mahjong.game,during);
+  spoken[0].onend();
+  assert(h.run(0));
+  assert(!h.html().includes('正在播报'));
+  assert(h.run(500),'the bot advances after speech ends');
+  if(spoken.length>1) {
+    h.click('app-pause');
+    h.click('app-pause');
+    assert.equal(spoken.at(-1).text,spoken.at(-2).text,'an interrupted call resumes');
+    spoken.at(-1).onerror({error:'not-allowed'});
+    assert(h.run(0));
+    assert.match(h.html(),/启用语音/);
+    assert(!h.html().includes('正在播报'));
+  }
 }

@@ -19,6 +19,12 @@
     return { special:[31,t], joker:t < 27 ? Math.floor(t / 9) * 9 + (t % 9 + 1) % 9 : 27 + (t - 27 + 1) % 7 };
   }
   function log(s, text) { s.log.unshift(text); s.log = s.log.slice(0,80); }
+  const announcements = new WeakMap();
+  let announcementId = 0;
+  function announce(s, text) {
+    announcements.set(s, [...voiceEvents(s).slice(-7), { id: ++announcementId, text }]);
+  }
+  function voiceEvents(s) { return announcements.get(s) || []; }
   function opened(p) { return p.melds.length > 0 || p.specials.length > 0; }
   function units(p) { return p.specials.reduce((n,m) => n + m.units,0) + p.melds.reduce((n,m) => n + (m.kind === 'concealed' ? 2 : ['exposed','added'].includes(m.kind) ? 1 : 0),0); }
   function sort(p) { p.hand.sort((a,b) => a-b); }
@@ -126,6 +132,7 @@
     const result={round:s.round,at:now(),winner,from,info, ...settlement};
     s.totals=s.totals.map((v,i)=>v+settlement.delta[i]);s.ledger.push(result);s.roundResult=result;s.roundPending=true;s.pending=null;s.current=-1;s.lastDraw=null;s.step++;
     log(s,winner===null?'牌墙已摸完，本局流局。':label(winner)+' '+(info.clean?'清水':'浑水')+info.name+' · '+settlement.top+' · 本局 +'+money(settlement.delta[winner])+' 元。');
+    announce(s,winner===null?'流局':({self:'自摸',flower:'杠上开花',rob:'抢杠胡',discard:'胡牌'})[info.source]);
   }
   function draw(s, seat, flower = false) {
     if(!s.wall.length){finishRound(s);return;}
@@ -232,6 +239,7 @@
     p.melds.push({kind:pick.action==='m-chi'?'chi':pick.action==='m-peng'?'peng':'exposed',ids,from:pending.from});
     s.pending=null;s.lastDraw=null;s.current=pick.seat;s.step++;
     log(s,label(pick.seat)+(pick.action==='m-chi'?'吃':pick.action==='m-peng'?'碰':'明杠')+names[t]+'。');
+    announce(s,({ 'm-chi':'吃', 'm-peng':'碰', 'm-claim-gang':'明杠' })[pick.action]+names[t]);
     if(pick.action==='m-claim-gang')draw(s,pick.seat,true);
   }
   function canAct(s,seat) {
@@ -263,15 +271,27 @@
     if(action==='m-hu'){finishRound(s,actor,analyse(s,actor,null,!!s.lastDraw?.flower,true));return;}
     if(action==='m-special') {
       const id=choice.tile;p.hand.splice(p.hand.indexOf(id),1);p.specials.push({id,units:type(id)===s.joker?2:1});
-      log(s,label(actor)+'杠出 '+names[type(id)]+(type(id)===s.joker?'（赖子杠，计两杠）':'')+'。');draw(s,actor,true);return;
+      log(s,label(actor)+'杠出 '+names[type(id)]+(type(id)===s.joker?'（赖子杠，计两杠）':'')+'。');
+      announce(s,type(id)===s.joker?'赖子杠':'杠'+names[type(id)]);
+      draw(s,actor,true);return;
     }
     if(action==='m-gang') {
-      if(choice.kind==='added') {const id=p.hand.find(id=>type(id)===choice.tile);openResponses(s,id,actor,'rob');}
-      else {p.melds.push({kind:'concealed',ids:removeTypes(p,Array(4).fill(choice.tile)),from:actor});log(s,label(actor)+'暗杠。');draw(s,actor,true);}
+      if(choice.kind==='added') {
+        const id=p.hand.find(id=>type(id)===choice.tile);
+        announce(s,'补杠'+names[choice.tile]);
+        openResponses(s,id,actor,'rob');
+      } else {
+        p.melds.push({kind:'concealed',ids:removeTypes(p,Array(4).fill(choice.tile)),from:actor});
+        log(s,label(actor)+'暗杠。');
+        announce(s,'暗杠');
+        draw(s,actor,true);
+      }
       return;
     }
     p.hand.splice(p.hand.indexOf(choice.tile),1);s.discards.push({id:choice.tile,seat:actor,taken:false});s.lastDraw=null;s.step++;
-    log(s,label(actor)+'打出 '+names[type(choice.tile)]+'。');openResponses(s,choice.tile,actor,'discard');
+    log(s,label(actor)+'打出 '+names[type(choice.tile)]+'。');
+    announce(s,names[type(choice.tile)]);
+    openResponses(s,choice.tile,actor,'discard');
   }
   function efficiency(s, seat, discard, difficulty) {
     const p=s.players[seat], counts=Array(34).fill(0);
@@ -345,7 +365,7 @@
     const marks=options.joker?['宝']:options.skin?['皮']:options.gang?['杠']:[];
     const cls='mj-tile mj-suit-'+suit+(options.joker?' is-joker':'')+(options.selected?' is-selected':'')+(options.drawn?' is-drawn':'');
     const body='<svg viewBox="0 0 60 65" aria-hidden="true">'+art+'</svg><span class="mj-tile-name">'+names[t]+'</span>'+(marks.length?'<small class="mj-mark">'+marks.join('·')+'</small>':'');
-    return options.button?'<button class="'+cls+'" data-action="m-select" data-tile="'+id+'" data-step="'+options.step+'" aria-label="选择'+names[t]+'" aria-pressed="'+!!options.selected+'" title="'+names[t]+'">'+body+'</button>':'<span class="'+cls+'" role="img" aria-label="'+names[t]+'" title="'+names[t]+'">'+body+'</span>';
+    return options.button?'<button class="'+cls+'" '+(options.disabled?'disabled ':'')+'data-action="m-select" data-tile="'+id+'" data-step="'+options.step+'" aria-label="选择'+names[t]+'" aria-pressed="'+!!options.selected+'" title="'+names[t]+'">'+body+'</button>':'<span class="'+cls+'" role="img" aria-label="'+names[t]+'" title="'+names[t]+'">'+body+'</span>';
   }
   function resultsHtml(s) {
     return '<section class="mj-ledger"><div class="row between"><strong>本场账单'+(s.finished?' · 已结束':'')+'</strong><button data-mj-export="'+s.sessionId+'">下载本场结果</button></div><p class="muted">'+esc(new Date(s.startedAt).toLocaleString('zh-CN'))+' — '+(s.endedAt?esc(new Date(s.endedAt).toLocaleString('zh-CN')):'进行中')+' · '+s.ledger.length+' 局 · 仅本场记账</p><div class="mj-totals">'+s.totals.map((v,i)=>'<div><span>'+esc(s.participantNames[i])+'</span><b class="'+(v>0?'win':'')+'">'+(v>0?'+':'')+money(v)+' 元</b></div>').join('')+'</div><details data-detail-id="mahjong-ledger"><summary>逐局明细与付款依据</summary>'+s.ledger.slice().reverse().map(r=>'<article class="mj-bill"><strong>第 '+r.round+' 局 · '+(r.winner===null?'流局':esc(s.participantNames[r.winner])+' · '+(r.info.clean?'清水':'浑水')+esc(r.info.name)+' · '+r.top)+'</strong>'+(r.rows.length?'<ul>'+r.rows.filter(x=>x.seat!==r.winner).map(x=>'<li>'+esc(s.participantNames[x.seat])+'：'+x.jin+' 斤 · '+money(x.cents)+' 元 · '+x.reason+' · 双方 '+x.units+' 杠</li>').join('')+'</ul>':'<p>本局无人收付。</p>')+'</article>').join('')+'</details></section>';
@@ -354,7 +374,7 @@
     const viewer=ui.viewer??0,mine=canAct(s,viewer),host=!s.online||ui.isHost;
     const selection=ui.mjSelected?.step===s.step&&s.players[viewer].hand.includes(ui.mjSelected.tile)?ui.mjSelected.tile:null;
     const tile=(id,opts={})=>tileHtml(id,{skin:id!==null&&type(id)===type(s.indicator),joker:id!==null&&type(id)===s.joker,gang:id!==null&&(s.special.includes(type(id))||type(id)===s.joker),...opts});
-    const buttons=choices=>choices.map(o=>'<button '+(o.action==='m-hu'?'class="mj-hu primary" ':'')+'data-action="'+o.action+'" data-step="'+s.step+'" '+(s.pending?'data-window="'+s.pending.id+'" ':'')+(o.tile!==undefined?'data-tile="'+o.tile+'" ':'')+(o.start!==undefined?'data-start="'+o.start+'" ':'')+(o.kind?'data-kind="'+o.kind+'" ':'')+'>'+esc(o.label)+'</button>').join('');
+    const buttons=choices=>choices.map(o=>'<button '+(ui.voiceBusy?'disabled ':'')+(o.action==='m-hu'?'class="mj-hu primary" ':'')+'data-action="'+o.action+'" data-step="'+s.step+'" '+(s.pending?'data-window="'+s.pending.id+'" ':'')+(o.tile!==undefined?'data-tile="'+o.tile+'" ':'')+(o.start!==undefined?'data-start="'+o.start+'" ':'')+(o.kind?'data-kind="'+o.kind+'" ':'')+'>'+esc(o.label)+'</button>').join('');
     let controls='';
     if(s.finished)controls='<p class="mj-turn">本场已结束，账单已保存。</p>';
     else if(s.roundPending) {
@@ -387,7 +407,7 @@
       const status=(i===s.dealer?'庄 · ':'')+(hasOpened?'已开口':'未开口')+' · '+units(p)+' 杠';
       const amount=delta===undefined?'':'<b class="mj-round-amount">'+(delta>0?'+':'')+money(delta)+' 元</b>';
       const hand=p.hand.map(id=>tile(reveal?id:null,{
-        button:own&&mine,step:s.step,selected:selection===id,
+        button:own&&mine,disabled:ui.voiceBusy,step:s.step,selected:selection===id,
         drawn:own&&!s.pending&&!roundResult&&s.lastDraw?.seat===i&&s.lastDraw.tile===id
       })).join('');
       const melds=p.melds.map(m=>'<span class="mj-meld">'+m.ids.map(id=>tile(m.kind==='concealed'&&!reveal?null:id)).join('')+
@@ -395,6 +415,7 @@
         .concat(p.specials.map(m=>'<span class="mj-meld">'+tile(m.id)+'<small>'+m.units+' 杠</small></span>')).join('');
       const latest=last?tile(last.id)+(last.taken?'<small>已被取走</small>':''):'<small>尚未出牌</small>';
       const actions=own?'<section class="mj-controls" aria-label="本局操作">'+controls+
+        (ui.voiceBusy?'<small role="status">正在播报…</small>':'')+
         (ui.error?'<p class="field-error" role="alert">'+esc(ui.error)+'</p>':'')+'</section>':'';
       return '<section class="mj-seat mj-seat-'+relative+(i===s.current?' current':'')+'">'+
         '<header><strong>'+C.playerBadge(i,ui)+esc(label(i))+'</strong><span>'+status+'</span>'+amount+'</header>'+
@@ -419,5 +440,5 @@
       '<details class="mj-table-detail mj-bill-detail" data-detail-id="mahjong-session"><summary>本场账单</summary>'+
       resultsHtml(s)+'</details></div></section>';
   }
-  C.Games.mahjong={create,act,bot,validate,restore,render,canAct,ownOptions,analyse,calculate,summary,tileHtml,names,type,specialTiles,opened,units,defaultPrices,prices,money};
+  C.Games.mahjong={create,act,bot,validate,restore,render,canAct,ownOptions,analyse,calculate,summary,tileHtml,names,type,specialTiles,opened,units,defaultPrices,prices,money,voiceEvents};
 })();

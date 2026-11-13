@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const test = require('node:test');
 const forms = require('../js/online-forms');
 
-async function harness() {
+async function harness(speech) {
   const handlers = {}, sent = [], feedback = new Map(), sockets = [];
   const app = { innerHTML: '', classList: { toggle() {} }, querySelectorAll() { return []; }, addEventListener(name, fn) { handlers[name] = fn; } };
   class Socket { static OPEN = 1; readyState = 1; constructor() { sockets.push(this); } send(value) { sent.push(JSON.parse(value)); } }
@@ -15,6 +15,11 @@ async function harness() {
     fetch: async path => ({ json: async () => path === '/api/me' ? { id: 'viewer', nick: '测试' } : [] }),
     FormData: class { constructor(form) { this.entries = form.elements.map(field => [field.name, field.value]); } [Symbol.iterator]() { return this.entries[Symbol.iterator](); } } };
   context.window = context;
+  if (speech) {
+    context.speechSynthesis = speech;
+    context.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
+    vm.runInNewContext(fs.readFileSync(__dirname + '/../js/mahjong-voice.js', 'utf8'), context);
+  }
   vm.runInNewContext(fs.readFileSync(__dirname + '/../js/online.js', 'utf8'), context);
   await new Promise(resolve => setImmediate(resolve));
   function joinForm(value) {
@@ -27,9 +32,11 @@ async function harness() {
     form.elements.namedItem = name => form.elements.find(item => item.name === name); field.form = form;
     return form;
   }
-  return { sent, feedback, joinForm, html() { return app.innerHTML; }, room(type) {
-    sockets[0].onmessage({ data: JSON.stringify({ type: 'state', room: { id: 'AB1234CDEF', phase: 'lobby', options: { type, mode: 'cash', seats: 2 },
-      members: [{ id: 'viewer', nick: '测试', ready: false, online: true }], queue: [], seat: -1, seats: [], isHost: true, host: 'viewer' }, gameHtml: '' }) });
+  return { sent, feedback, joinForm, html() { return app.innerHTML; }, room(type, mahjongVoice) {
+    sockets[0].onmessage({ data: JSON.stringify({ type: 'state', room: { id: 'AB1234CDEF', phase: mahjongVoice?'playing':'lobby', options: { type, mode: 'cash', seats: 2 },
+      members: [{ id: 'viewer', nick: '测试', ready: false, online: true }], queue: [], seat: 0, seats: [], isHost: true, host: 'viewer' }, gameHtml: '', mahjongVoice }) });
+  }, click(action) {
+    return handlers.click({target:{closest(){return {dataset:{action}};}}});
   }, async submit(form) { let prevented = false; await handlers.submit({ target: form, preventDefault() { prevented = true; } }); assert(prevented); } };
 }
 
@@ -38,6 +45,20 @@ test('the real submit handler joins even when a named input shadows form.id', as
   assert.equal(form.id, form.elements[0]);
   await h.submit(form);
   assert.deepEqual(h.sent, [{ kind: 'join', id: 'AB1234CDEF' }]);
+});
+
+test('online speech interrupts the previous call without blocking a game action', async () => {
+  const spoken=[];
+  let interrupted=0;
+  const h=await harness({getVoices(){return []},speak(utterance){spoken.push(utterance.text)},cancel(){interrupted++;}});
+  h.room('mahjong',{sessionId:'test',event:{id:1,text:'上一次出牌'}});
+  h.room('mahjong',{sessionId:'test',event:{id:2,text:'三筒'}});
+  h.room('mahjong',{sessionId:'test',event:{id:2,text:'三筒'}});
+  await h.click('m-peng');
+  assert.equal(h.sent.at(-1).action,'m-peng');
+  h.room('mahjong',{sessionId:'test',event:{id:3,text:'碰三筒'}});
+  assert.deepEqual(spoken,['三筒','碰三筒']);
+  assert.equal(interrupted,1);
 });
 
 test('an invalid room code stays beside the input and sends no websocket command', async () => {

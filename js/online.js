@@ -1,6 +1,8 @@
 (function () {
   'use strict';
   const app = document.getElementById('online-app'), forms = window.OnlineForms;
+  const mahjongVoice = window.MahjongVoice;
+  let voiceSession = null, voiceCursor = 0;
   const drafts = new Map(), passwordDrafts = new Map();
   let sharedCreate = {}, notice = '', noticeTimer, manualCopyRoom = '', renderedView = '';
   const names = { splendor: '璀璨宝石', scout: '马戏星探', poker: '德州扑克', athlete: '胡闹运动会', flip7: 'Flip 7', mahjong: '武穴麻将' };
@@ -145,7 +147,7 @@
       ${room.phase === 'playing' ? `<details class="online-room-details" data-detail-id="room-management"><summary>房间成员与管理</summary>${management}</details>` : management}
       ${room.phase === 'lobby' ? `<div class="online-compact">${readyButton}${host ? `<button class="primary" data-ui="start" ${prepared >= needed ? '' : 'disabled'}>开始本局</button>` : ''}</div><p class="footer-note">未准备的人可以稍后准备，${timing}自动入座。</p>` : !seated && mine ? `<div class="online-compact">${readyButton}<span class="muted">${timing}有空位时自动入座。</span></div>` : ''}
       ${room.phase === 'finished' && host ? '<button class="primary" data-ui="rematch">返回准备下一局</button>' : ''}${guide(room)}
-      ${mahjongPlaying ? `<details class="online-mahjong-emotes" data-detail-id="mahjong-emotes"><summary>快捷短语</summary>${emoteButtons}</details>` : ''}</section>
+      ${mahjongPlaying ? `<details class="online-mahjong-emotes" data-detail-id="mahjong-emotes"><summary>快捷短语</summary>${emoteButtons}</details>${mahjongVoice?.button('data-ui') || ''}` : ''}</section>
       ${room.phase !== 'lobby' ? `<div class="online-game"><div class="game-surface game-${room.options.type}">${gameHtml}</div>${transferPanel(room)}</div>` : ''}
       ${room.phase === 'playing' && !mahjongPlaying ? `<nav class="online-emote-dock" aria-label="牌桌快捷短语"><span>快捷短语</span>${emoteButtons}</nav>` : ''}`;
   }
@@ -187,6 +189,26 @@
     if (item) item.textContent = Math.max(0, Math.ceil((Number(item.dataset.deadline) - Date.now()) / 1000)) + ' 秒';
   }
 
+  function updateVoiceButton() {
+    const button = app.querySelector('[data-ui="mahjong-voice"]');
+    if (button) button.outerHTML = mahjongVoice.button('data-ui');
+  }
+
+  function updateMahjongVoice(voice) {
+    if (!mahjongVoice) return;
+    const session = voice?.sessionId ?? null;
+    const id = voice?.event?.id ?? 0;
+    if (session !== voiceSession) {
+      mahjongVoice.stop();
+      voiceSession = session;
+      voiceCursor = id;
+      return;
+    }
+    if (id <= voiceCursor) return;
+    voiceCursor = id;
+    mahjongVoice.play(voice.event.text, updateVoiceButton);
+  }
+
   function connect() {
     if (!me) return;
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -195,13 +217,21 @@
     socket.onmessage = event => {
       let packet; try { packet = JSON.parse(event.data); } catch { return; }
       if (packet.type === 'rooms') rooms = packet.rooms;
-      else if (packet.type === 'state') { state = { room: packet.room, gameHtml: packet.gameHtml }; error = ''; if(packet.mahjongResult && window.MahjongResults && !window.MahjongResults.save(packet.mahjongResult)) { if(packet.mahjongResult.ledger.length) error='本机结果缓存失败，请及时下载本场结果'; } }
+      else if (packet.type === 'state') {
+        state = { room: packet.room, gameHtml: packet.gameHtml };
+        error = '';
+        updateMahjongVoice(packet.mahjongVoice);
+        if(packet.mahjongResult && window.MahjongResults && !window.MahjongResults.save(packet.mahjongResult)) {
+          if(packet.mahjongResult.ledger.length) error='本机结果缓存失败，请及时下载本场结果';
+        }
+      }
       else if (packet.type === 'mahjongResult') { window.MahjongResults?.save(packet.result); }
-      else if (packet.type === 'left') state = null;
+      else if (packet.type === 'left') { state = null; updateMahjongVoice(null); }
       else if (packet.type === 'error') error = packet.message;
       render();
     };
     socket.onclose = async () => {
+      updateMahjongVoice(null);
       connected = false; render();
       try { const result = await fetch('/api/me').then(r => r.json()); if (!result) { me = null; state = null; showError('服务器已重启，请重新创建身份'); return; } }
       catch { /* The local server may still be restarting. */ }
@@ -214,7 +244,8 @@
     const ui = button.dataset.ui;
     if (ui) {
       const room = state?.room;
-      if (ui === 'lobby-tab') { lobbyMode = button.dataset.mode; error = ''; render(); }
+      if (ui === 'mahjong-voice') { mahjongVoice?.toggle(updateVoiceButton); updateVoiceButton(); }
+      else if (ui === 'lobby-tab') { lobbyMode = button.dataset.mode; error = ''; render(); }
       else if (ui === 'join-listed') { const id = button.dataset.room; const pwd = app.querySelector(`[data-password-for="${id}"]`)?.value || ''; send({ kind: 'join', id, password: pwd }); }
       else if (ui === 'copy-link') {
         try {
