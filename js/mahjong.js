@@ -363,7 +363,7 @@
     else if(suit===2&&rank===1)art=bird;
     else art=positions[rank].map(([x,y],i)=>suit===1?'<circle cx="'+x+'" cy="'+y+'" r="'+(rank===1?18:6)+'" fill="none" stroke="'+(['#294d80','#167340','#b62f28'][i%3])+'" stroke-width="3"/><circle cx="'+x+'" cy="'+y+'" r="'+(rank===1?10:2)+'" fill="'+(['#294d80','#167340','#b62f28'][i%3])+'"/>':'<rect x="'+(x-3)+'" y="'+(y-6)+'" width="6" height="12" rx="2" fill="'+(rank===5&&i===2?'#b62f28':'#167340')+'"/><path d="M'+(x-4)+' '+y+'h8" stroke="#f3deb2" stroke-width="1.5"/>').join('');
     const marks=options.joker?['宝']:options.skin?['皮']:options.gang?['杠']:[];
-    const cls='mj-tile mj-suit-'+suit+(options.joker?' is-joker':'')+(options.selected?' is-selected':'')+(options.drawn?' is-drawn':'');
+    const cls='mj-tile mj-suit-'+suit+(options.joker?' is-joker':'')+(options.selected?' is-selected':'')+(options.drawn?' is-drawn':'')+(options.winning?' is-winning':'');
     const body='<svg viewBox="0 0 60 65" aria-hidden="true">'+art+'</svg><span class="mj-tile-name">'+names[t]+'</span>'+(marks.length?'<small class="mj-mark">'+marks.join('·')+'</small>':'');
     return options.button?'<button class="'+cls+'" '+(options.disabled?'disabled ':'')+'data-action="m-select" data-tile="'+id+'" data-step="'+options.step+'" aria-label="选择'+names[t]+'" aria-pressed="'+!!options.selected+'" title="'+names[t]+'">'+body+'</button>':'<span class="'+cls+'" role="img" aria-label="'+names[t]+'" title="'+names[t]+'">'+body+'</span>';
   }
@@ -377,7 +377,7 @@
       '<li><b>'+esc(s.participantNames[row.seat])+'</b> · '+row.jin+' 斤 · '+money(row.cents)+' 元'+
       '<small>'+esc(row.reason)+' · 双方 '+row.units+' 杠</small></li>').join('')+'</ul>':'<p class="muted">本局无人收付。</p>';
     const detailsKey='mahjong-ledger-'+esc(s.sessionId);
-    return '<aside class="mj-sidebar mj-ledger" aria-label="本场账单"><div class="mj-sidebar-inner" data-mj-scroll="'+detailsKey+'">'+
+    return '<aside class="mj-sidebar mj-ledger" aria-label="本场账单"><div class="mj-sidebar-inner" tabindex="0" data-mj-scroll="'+detailsKey+'">'+
       '<h3>本场账单</h3>'+
       (latest?'<section class="mj-latest-bill"><strong>'+heading(latest)+'</strong>'+amounts(latest.delta)+'</section>'+
         '<details class="mj-ledger-details" data-mj-desktop-open data-detail-id="'+detailsKey+'"><summary>逐局明细</summary>'+
@@ -389,14 +389,22 @@
         '<p class="muted">结算后显示最新一局。</p>')+'</div></aside>';
   }
   function riverHtml(discards, seatName, relative, tile) {
+    const lineLength=relative%2?5:10;
     const lines=[];
-    for(let start=0;start<discards.length;start+=6) {
-      lines.push('<div class="mj-river-line">'+discards.slice(start,start+6).map((d,i)=>
+    for(let start=0;start<discards.length;start+=lineLength) {
+      lines.push('<div class="mj-river-line">'+discards.slice(start,start+lineLength).map((d,i)=>
         '<span class="mj-river-entry'+(d.taken?' is-taken':'')+(start+i===discards.length-1?' is-latest':'')+
         '" title="'+esc(seatName)+'第 '+(start+i+1)+' 张：'+names[type(d.id)]+(d.taken?'（已被取走）':'')+'">'+tile(d.id)+'</span>').join('')+'</div>');
     }
     return '<div class="mj-river-zone mj-river-'+relative+'" role="group" aria-label="'+esc(seatName)+'的出牌">'+
-      '<div class="mj-river" style="--river-lines:'+Math.max(relative%2?5:1,lines.length)+'">'+lines.join('')+'</div></div>';
+      '<div class="mj-river" style="--river-lines:'+Math.max(1,lines.length)+'">'+lines.join('')+'</div></div>';
+  }
+  function meldsHtml(player, tile, revealConcealed) {
+    const meld=(tiles,caption)=>'<span class="mj-meld"><span class="mj-meld-tiles">'+tiles+
+      '</span><small>'+caption+'</small></span>';
+    return player.melds.map(m=>meld(m.ids.map(id=>tile(m.kind==='concealed'&&!revealConcealed?null:id)).join(''),
+      ({chi:'吃',peng:'碰',concealed:'暗杠',exposed:'明杠',added:'补杠'})[m.kind]))
+      .concat(player.specials.map(m=>meld(tile(m.id),m.units+' 杠'))).join('');
   }
   function render(s,ui={}) {
     const viewer=ui.viewer??0,mine=canAct(s,viewer),host=!s.online||ui.isHost;
@@ -430,49 +438,61 @@
       if(selection!==null&&mine)controls+=buttons(options.filter(o=>o.action!=='m-hu'&&(o.action==='m-gang'?o.tile===type(selection):o.tile===selection)).map(o=>({...o,label:o.action==='m-discard'?'确认打出 '+names[type(selection)]:o.label})));
     }
     const roundResult=s.roundPending||s.finished?s.roundResult:null;
+    const winner=roundResult?.winner;
+    const winningTile=roundResult?.info?.winTile;
     const discardsBySeat=Array.from({length:4},()=>[]);
     for(const discard of s.discards)discardsBySeat[discard.seat].push(discard);
+    const river=relative=>{
+      const seat=(viewer+relative)%4;
+      return riverHtml(discardsBySeat[seat],label(seat),relative,tile);
+    };
     const seatHtml=i=>{
       const p=s.players[i],relative=(i-viewer+4)%4,last=discardsBySeat[i].at(-1);
-      const own=i===viewer,reveal=own||!!roundResult;
+      const own=i===viewer;
       const delta=roundResult?.delta[i];
       const hasOpened=roundResult?.rows.find(row=>row.seat===i)?.opened??opened(p);
       const status=(i===s.dealer?'庄 · ':'')+(hasOpened?'已开口':'未开口')+' · '+units(p)+' 杠';
       const amount=delta===undefined?'':'<b class="mj-round-amount">'+(delta>0?'+':'')+money(delta)+' 元</b>';
-      const hand=p.hand.map(id=>tile(reveal?id:null,{
+      const hand=own&&winner!==i?p.hand.map(id=>tile(id,{
         button:own&&mine,disabled:ui.voiceBusy,step:s.step,selected:selection===id,
         drawn:own&&!s.pending&&!roundResult&&s.lastDraw?.seat===i&&s.lastDraw.tile===id
-      })).join('');
-      const meld=(tiles,caption)=>'<span class="mj-meld"><span class="mj-meld-tiles">'+tiles+
-        '</span><small>'+caption+'</small></span>';
-      const melds=p.melds.map(m=>meld(m.ids.map(id=>tile(m.kind==='concealed'&&!reveal?null:id)).join(''),
-        ({chi:'吃',peng:'碰',concealed:'暗杠',exposed:'明杠',added:'补杠'})[m.kind]))
-        .concat(p.specials.map(m=>meld(tile(m.id),m.units+' 杠'))).join('');
+      })).join(''):'';
+      const handDisplay=hand?'<div class="mj-hand mj-own-hand">'+hand+'</div>':winner!==i?
+        '<span class="mj-covered" aria-label="手牌 '+p.hand.length+' 张">'+tile(null)+'<span aria-hidden="true">×'+p.hand.length+'</span></span>':'';
+      const melds=winner===i?'':meldsHtml(p,tile,own||!!roundResult);
+      const rack=handDisplay||melds?'<div class="mj-rack">'+handDisplay+
+        (melds?'<div class="mj-melds" role="group" aria-label="吃碰杠">'+melds+'</div>':'')+'</div>':'';
       const latest=last?tile(last.id)+(last.taken?'<small>已被取走</small>':''):'<small>尚未出牌</small>';
       const actions=own?'<section class="mj-controls" aria-label="本局操作">'+controls+
         (ui.voiceBusy?'<small role="status">正在播报…</small>':'')+
         (ui.error?'<p class="field-error" role="alert">'+esc(ui.error)+'</p>':'')+'</section>':'';
-      return '<section class="mj-seat mj-seat-'+relative+(i===s.current?' current':'')+'">'+
+      return '<section class="mj-seat mj-seat-'+relative+(i===s.current?' current':'')+(i===winner?' is-winner':'')+'">'+
         '<header><strong>'+C.playerBadge(i,ui)+esc(label(i))+'</strong><span>'+status+'</span>'+amount+'</header>'+
-        '<div class="mj-rack"><div class="mj-hand'+(own?' mj-own-hand':'')+'">'+hand+'</div>'+
-        (melds?'<div class="mj-melds" role="group" aria-label="吃碰杠">'+melds+'</div>':'')+'</div>'+
-        '<div class="mj-seat-discard"><div class="mj-latest"><span>最新出牌</span>'+latest+'</div>'+actions+'</div></section>';
+        rack+
+        '<div class="mj-seat-discard"><div class="mj-latest"><span>最新出牌</span>'+latest+'</div>'+actions+'</div>'+
+        (relative%2?river(relative):'')+'</section>';
     };
     const indicators='<div class="mj-indicators"><div class="mj-special-tiles"><div>皮子'+tile(s.indicator)+'</div><div>宝'+tile(s.joker*4)+
       '</div><div>可杠'+s.special.map(t=>tile(t*4)).join('')+'</div></div>'+
       '<details class="mj-wall" data-detail-id="mahjong-wall"><summary>骰子 '+s.dice.join(' + ')+' · 翻皮与抓牌</summary>'+
       '<div class="mj-wall-info"><div>翻皮：'+esc(label(s.wallSeat))+'第 '+s.flipStack+' 垛</div>'+
       '<div>起抓：'+esc(label(s.startWall))+'第 '+s.startStack+' 垛（跳 '+s.skip+' 垛）</div></div></details></div>';
-    const rivers='<div class="mj-center" aria-label="各家出牌">'+[2,1,3,0].map(relative=>{
-      const seat=(viewer+relative)%4;
-      return riverHtml(discardsBySeat[seat],label(seat),relative,tile);
-    }).join('')+'</div>';
+    let winningHand='';
+    if(Number.isInteger(winner)) {
+      const player=s.players[winner],info=roundResult.info;
+      const winningTiles=player.hand.map(id=>tile(id,{winning:id===winningTile})).join('');
+      const melds=meldsHtml(player,tile,true);
+      winningHand='<section class="mj-winning-hand" aria-label="赢家牌面"><strong>'+esc(label(winner))+' · '+
+        (info.clean?'清水':'浑水')+esc(info.name)+'</strong><div class="mj-winning-rack"><div class="mj-winning-tiles">'+winningTiles+'</div>'+
+        (melds?'<div class="mj-melds" aria-label="赢家吃碰杠">'+melds+'</div>':'')+'</div></section>';
+    }
+    const rivers='<div class="mj-center">'+river(2)+winningHand+river(0)+'</div>';
     const logKey='mahjong-log-'+esc(s.sessionId);
     const actionLog='<aside class="mj-sidebar mj-action-log" aria-label="行牌记录"><details class="mj-sidebar-inner"'+
       ' data-mj-desktop-open data-detail-id="'+logKey+'"><summary>行牌记录</summary>'+
-      '<div class="mj-log-scroll" data-mj-scroll="'+logKey+'" data-mj-follow><ol>'+s.log.slice().reverse().map(line=>'<li>'+esc(line)+'</li>').join('')+
+      '<div class="mj-log-scroll" tabindex="0" data-mj-scroll="'+logKey+'" data-mj-follow><ol>'+s.log.slice().reverse().map(line=>'<li>'+esc(line)+'</li>').join('')+
       '</ol></div></details></aside>';
-    return '<section class="mj-game"><div class="mj-board'+(roundResult?' is-settled':'')+'"><div class="mj-round"><strong>第 '+s.round+
+    return '<section class="mj-game"><div class="mj-board'+(roundResult?' is-settled':'')+(winningHand?' has-winner':'')+'"><div class="mj-round"><strong>第 '+s.round+
       ' 局</strong><span>牌墙余 '+s.wall.length+' 张</span></div>'+indicators+[2,1,3].map(r=>seatHtml((viewer+r)%4)).join('')+
       rivers+seatHtml(viewer)+'</div>'+resultsHtml(s)+actionLog+'</section>';
   }

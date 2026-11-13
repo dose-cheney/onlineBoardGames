@@ -134,6 +134,8 @@ test('an unopened discarder pays for the win and the board shows only round amou
   assert.deepEqual(plain(s.roundResult.delta),[-100,0,100,0]);
   const html=M.render(s);
   assert.equal((html.match(/class="mj-round-amount"/g)||[]).length,4);
+  assert.match(html,/<section class="mj-winning-hand" aria-label="赢家牌面"><strong>电脑 2/);
+  assert.match(html,/class="mj-tile [^"]*is-winning"/);
   assert.match(html,/未开口 · 0 杠<\/span><b class="mj-round-amount">0 元/);
   assert.doesNotMatch(html,/class="mj-round-amount">[^<]*(89|90) 元/);
 });
@@ -177,7 +179,11 @@ test('online fixed four seats, authenticated simultaneous seats, secrecy, sessio
   assert.throws(()=>settings({type:'mahjong',seats:3,difficulty:'easy'}),/四个座位/);
   const ctx=online(),{hub,users,room}=ctx;assert.equal(room.seats.length,4);assert(M.validate(room.game,4));
   const viewer=users[0].peer.packets.filter(p=>p.type==='state').at(-1);assert(viewer.mahjongResult);assert.equal(viewer.mahjongResult.participants[0],'麻友0');assert(!viewer.mahjongResult.wall);assert(!viewer.mahjongResult.players);
-  const html=viewer.gameHtml;assert.equal((html.match(/class="mj-tile mj-back/g)||[]).length,room.game.players.slice(1).reduce((n,p)=>n+p.hand.length,0));
+  const html=viewer.gameHtml;
+  const covered=[...html.matchAll(/class="mj-covered" aria-label="手牌 (\d+) 张"/g)].map(match=>Number(match[1]));
+  assert.deepEqual(covered.sort((a,b)=>a-b),Array.from(room.game.players.slice(1),p=>p.hand.length).sort((a,b)=>a-b));
+  assert.equal((html.match(/class="mj-tile mj-back/g)||[]).length,3);
+  assert(!html.includes('mj-winning-hand'));
   assert(!html.includes('undefined'));assert(!html.includes('NaN'));assert(room.turnDeadline>Date.now());
   assert.throws(()=>hub.gameAction(room,users[1],{action:'m-end',data:{}}),/房主/);
   for(let k=0;k<1200&&!room.game.roundPending;k++)M.bot(room.game,'hard');hub.touch(room);assert(room.game.roundPending);
