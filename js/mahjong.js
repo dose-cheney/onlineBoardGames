@@ -434,7 +434,7 @@
       ' · 翻皮与抓牌</summary><div class="mj-detail-panel"><p>从庄家起顺时针数 '+C.sum(s.dice)+' 位，选中'+esc(label(s.wallSeat))+
       '的牌墙；第 '+s.flipStack+' 垛上牌翻出 '+names[type(s.indicator)]+'。从该垛后跳 '+s.skip+' 垛，再从'+
       esc(label(s.startWall))+'牌墙第 '+s.startStack+' 垛起抓。</p></div></details>';
-    return '<section class="mj-game"><div class="mj-board"><div class="mj-round"><strong>第 '+s.round+
+    return '<section class="mj-game"><div class="mj-board'+(roundResult?' is-settled':'')+'"><div class="mj-round"><strong>第 '+s.round+
       ' 局</strong><span>牌墙余 '+s.wall.length+' 张</span></div>'+indicators+[2,1,3].map(r=>seatHtml((viewer+r)%4)).join('')+
       river+seatHtml(viewer)+'</div><div class="mj-table-tools">'+wallGuide+
       '<details class="mj-table-detail" data-detail-id="mahjong-log"><summary>行牌记录</summary><div class="mj-detail-panel log">'+
