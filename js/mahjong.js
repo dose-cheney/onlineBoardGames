@@ -410,17 +410,19 @@
         button:own&&mine,disabled:ui.voiceBusy,step:s.step,selected:selection===id,
         drawn:own&&!s.pending&&!roundResult&&s.lastDraw?.seat===i&&s.lastDraw.tile===id
       })).join('');
-      const melds=p.melds.map(m=>'<span class="mj-meld">'+m.ids.map(id=>tile(m.kind==='concealed'&&!reveal?null:id)).join('')+
-        '<small>'+({chi:'吃',peng:'碰',concealed:'暗杠',exposed:'明杠',added:'补杠'})[m.kind]+'</small></span>')
-        .concat(p.specials.map(m=>'<span class="mj-meld">'+tile(m.id)+'<small>'+m.units+' 杠</small></span>')).join('');
+      const meld=(tiles,caption)=>'<span class="mj-meld"><span class="mj-meld-tiles">'+tiles+
+        '</span><small>'+caption+'</small></span>';
+      const melds=p.melds.map(m=>meld(m.ids.map(id=>tile(m.kind==='concealed'&&!reveal?null:id)).join(''),
+        ({chi:'吃',peng:'碰',concealed:'暗杠',exposed:'明杠',added:'补杠'})[m.kind]))
+        .concat(p.specials.map(m=>meld(tile(m.id),m.units+' 杠'))).join('');
       const latest=last?tile(last.id)+(last.taken?'<small>已被取走</small>':''):'<small>尚未出牌</small>';
       const actions=own?'<section class="mj-controls" aria-label="本局操作">'+controls+
         (ui.voiceBusy?'<small role="status">正在播报…</small>':'')+
         (ui.error?'<p class="field-error" role="alert">'+esc(ui.error)+'</p>':'')+'</section>':'';
       return '<section class="mj-seat mj-seat-'+relative+(i===s.current?' current':'')+'">'+
         '<header><strong>'+C.playerBadge(i,ui)+esc(label(i))+'</strong><span>'+status+'</span>'+amount+'</header>'+
-        '<div class="mj-hand'+(own?' mj-own-hand':'')+'">'+hand+'</div>'+
-        (melds?'<div class="mj-melds">'+melds+'</div>':'')+
+        '<div class="mj-rack"><div class="mj-hand'+(own?' mj-own-hand':'')+'">'+hand+'</div>'+
+        (melds?'<div class="mj-melds" role="group" aria-label="吃碰杠">'+melds+'</div>':'')+'</div>'+
         '<div class="mj-seat-discard"><div class="mj-latest"><span>最新出牌</span>'+latest+'</div>'+actions+'</div></section>';
     };
     const indicators='<div class="mj-indicators"><div>皮子'+tile(s.indicator)+'</div><div>宝'+tile(s.joker*4)+

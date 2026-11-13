@@ -27,7 +27,7 @@
 .mj-round span,.mj-seat header span{color:#d6dfc9;font-size:12px}
 .mj-indicators{grid-area:indicators;display:flex;align-items:center;justify-content:end;gap:8px;flex-wrap:wrap}
 .mj-indicators>div{display:flex;align-items:center;gap:4px;font-size:12px}
-.mj-seat{min-width:0;padding:8px;border:1px solid #ffffff25;border-radius:10px;background:#071f1738}
+.mj-seat{container-type:inline-size;min-width:0;padding:8px;border:1px solid #ffffff25;border-radius:10px;background:#071f1738}
 .mj-seat.current{outline:2px solid #d8ba68;background:#163b30}
 .mj-seat header{display:flex;flex-wrap:wrap;gap:4px 9px;align-items:center;margin-bottom:6px}
 .mj-round-amount{font-size:14px;color:#ffe6a1;white-space:nowrap}
@@ -35,20 +35,31 @@
 .mj-seat-1{grid-area:left}
 .mj-seat-2{grid-area:top}
 .mj-seat-3{grid-area:right}
-.mj-hand,.mj-melds{display:flex;gap:3px;flex-wrap:wrap}
-.mj-hand .mj-tile{--tile-width:clamp(20px,2vw,27px);--tile-height:clamp(30px,3vw,40px)}
-.mj-own-hand{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:4px;max-width:730px;margin-inline:auto;padding-top:6px}
-.mj-own-hand .mj-tile{width:100%;height:auto;aspect-ratio:44/67;max-height:65px;min-width:0;margin:0}
+.mj-rack{display:flex;flex-wrap:wrap;align-items:flex-start;gap:5px 9px;min-width:0}
+.mj-hand,.mj-melds{display:flex;gap:2px;flex-wrap:wrap;min-width:0;max-width:100%}
+.mj-hand .mj-tile{--tile-width:min(27px,calc((100cqw - 26px)/14));--tile-height:calc(var(--tile-width)*1.46)}
+.mj-seat-0 .mj-rack{justify-content:center;gap:6px 16px;padding-top:6px}
+.mj-own-hand{gap:4px;flex-wrap:nowrap}
+.mj-own-hand .mj-tile{
+  --tile-width:min(45px,calc((100cqw - 52px)/14));--tile-height:calc(var(--tile-width)*1.45);
+  margin:0;
+}
 .mj-own-hand .mj-tile-name{font-size:9px;line-height:10px}
 .mj-own-hand .mj-tile.is-drawn{top:-5px}
 .mj-own-hand button.mj-tile{background-color:#fff8e6}
 .mj-own-hand button.mj-tile.is-joker{background:#fff2be}
 .mj-own-hand button.mj-tile.is-selected{background:#ffedb0}
 .mj-own-hand button.mj-tile:is(:hover,:focus-visible,.is-selected){outline:3px solid #dfae35;outline-offset:-3px}
-.mj-melds{gap:4px 7px;margin-top:5px}
-.mj-meld{display:flex;position:relative;gap:1px;padding-bottom:12px}
-.mj-meld .mj-tile{--tile-width:21px;--tile-height:31px}
-.mj-meld>small{position:absolute;bottom:0;font-size:9px;color:#ebdfbd}
+.mj-melds{gap:4px 6px}
+.mj-meld{
+  display:flex;flex-direction:column;align-items:center;gap:1px;
+  padding:2px 2px 0;border:1px solid #ffffff29;border-radius:5px;background:#071f1740;
+}
+.mj-meld-tiles{display:flex;gap:1px}
+.mj-meld .mj-tile{--tile-width:24px;--tile-height:35px}
+.mj-seat-0 .mj-melds{gap:5px 8px}
+.mj-seat-0 .mj-meld .mj-tile{--tile-width:32px;--tile-height:46px}
+.mj-meld>small{font-size:10px;line-height:13px;font-weight:650;color:#fff0c5;white-space:nowrap}
 .mj-center{grid-area:center;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px;color:#e0d5b5;font-size:12px}
 .mj-river{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;align-content:flex-start;width:100%;max-height:156px;overflow:auto}
 .mj-river-entry{display:inline-flex}
@@ -88,17 +99,14 @@
 @media(min-width:761px){
   .mj-seat:not(.mj-seat-0){
     display:grid;grid-template-columns:minmax(0,1fr) auto;
-    grid-template-areas:'identity latest' 'hand hand' 'melds melds';
-    grid-template-rows:auto auto 1fr;align-items:start;
+    grid-template-areas:'identity latest' 'rack rack';
+    grid-template-rows:auto 1fr;align-items:start;
   }
   .mj-seat:not(.mj-seat-0) header{grid-area:identity;align-self:center;margin-bottom:0}
-  .mj-seat:not(.mj-seat-0) .mj-hand{grid-area:hand;margin-top:4px}
-  .mj-seat:not(.mj-seat-0) .mj-melds{grid-area:melds}
+  .mj-seat:not(.mj-seat-0) .mj-rack{grid-area:rack;margin-top:4px}
   .mj-seat:not(.mj-seat-0) .mj-seat-discard{grid-area:latest;border:0;margin:0;padding:0 0 0 4px}
   .mj-seat:not(.mj-seat-0) .mj-latest{justify-content:end}
   .mj-seat:not(.mj-seat-0) .mj-latest .mj-tile{--tile-width:23px;--tile-height:34px}
-  .mj-seat:not(.mj-seat-0) .mj-meld .mj-tile{--tile-width:17px;--tile-height:25px}
-  .mj-seat:not(.mj-seat-0) .mj-meld .mj-tile-name{display:none}
   .mj-river.is-dense .mj-tile{--tile-width:13px;--tile-height:19px}
   .mj-river.is-dense .mj-tile-name{display:none}
   .mj-table-tools{position:relative}
@@ -118,30 +126,59 @@
 @media(min-width:761px) and (max-height:740px){
   .mj-board{gap:5px;padding:5px}
   .mj-seat{padding:4px 6px}
-  .mj-own-hand .mj-tile{max-height:50px}
+  .mj-own-hand .mj-tile{--tile-width:min(35px,calc((100cqw - 52px)/14))}
   .mj-river{max-height:112px}
-  .mj-hand .mj-tile{--tile-width:clamp(15px,1.7vw,22px);--tile-height:29px}
+  .mj-seat:not(.mj-seat-0) .mj-hand .mj-tile{--tile-width:min(20px,calc((100cqw - 26px)/14))}
   .mj-seat:not(.mj-seat-0) .mj-latest .mj-tile{--tile-width:20px;--tile-height:28px}
-  .mj-melds{gap:3px 4px;margin-top:3px}
-  .mj-meld{padding-bottom:10px}
-  .mj-meld .mj-tile{--tile-width:17px;--tile-height:25px}
+  .mj-melds{gap:3px 4px}
+  .mj-meld .mj-tile{--tile-width:21px;--tile-height:30px}
+  .mj-seat-0 .mj-meld .mj-tile{--tile-width:28px;--tile-height:40px}
   .mj-seat-0 .mj-seat-discard{margin-top:3px;padding-top:3px}
   .mj-table-tools{padding-block:2px}
   .game-shell:has(.mj-game)>.footer-note,.online-playing:has(.mj-game)>.footer-note{display:none}
 }
+@media (761px <= width <= 1180px) and (max-height:740px){
+  .mj-seat:not(.mj-seat-0) .mj-rack{gap:3px 5px}
+  .mj-seat:not(.mj-seat-0) .mj-hand .mj-tile{--tile-width:18px;--tile-height:25px}
+  .mj-seat:not(.mj-seat-0) .mj-meld .mj-tile{--tile-width:18px;--tile-height:25px}
+  .mj-seat:not(.mj-seat-0) .mj-meld .mj-tile-name{font-size:7px;line-height:8px}
+  .mj-seat:not(.mj-seat-0) .mj-meld{padding-inline:1px}
+  .mj-seat:not(.mj-seat-0) .mj-meld>small{font-size:9px;line-height:11px}
+  .mj-seat-0 .mj-meld .mj-tile{--tile-width:25px;--tile-height:36px}
+  .mj-seat-0 .mj-melds{gap:3px 5px}
+  .mj-seat-0 .mj-rack{gap:4px 10px}
+  .mj-seat-0 .mj-latest{flex-basis:100px}
+  .mj-win-proof{font-size:11px}
+  .mj-controls{gap:4px 5px;font-size:12px}
+  .mj-controls button{min-height:30px;padding:4px 7px}
+  .online-playing:has(.mj-game)>.topbar{margin-bottom:6px}
+  .online-playing:has(.mj-game) .online-room-header .row>div:first-child{display:flex;align-items:baseline;gap:6px}
+  .online-playing:has(.mj-game) .online-room-header .eyebrow{font-size:.7rem}
+  .online-playing:has(.mj-game) .online-room-header button{font-size:.8rem;padding:4px 7px;min-height:28px}
+  .online-playing:has(.mj-game) .online-guide>summary{font-size:.8rem}
+}
 @media(max-width:760px){
   .online-mahjong-emotes .online-emote-buttons{left:0;right:auto}
-  .mj-board{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:'round indicators' 'top top' 'left right' 'center center' 'own own';padding:7px;border-width:4px;gap:6px}
+  .mj-board{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:'round indicators' 'top top' 'left right' 'own own' 'center center';padding:7px;border-width:4px;gap:6px}
   .mj-round{padding-inline:4px}
   .mj-indicators{gap:4px}
   .mj-indicators>div{gap:2px;font-size:10px}
   .mj-indicators .mj-tile{--tile-width:21px;--tile-height:33px}
   .mj-seat{padding:6px}
   .mj-seat header span{font-size:10px}
-  .mj-hand .mj-tile{--tile-width:20px;--tile-height:31px}
+  .mj-seat-2{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'identity latest' 'rack rack'}
+  .mj-seat-2 header{grid-area:identity;margin-bottom:0;align-self:center}
+  .mj-seat-2 .mj-rack{grid-area:rack;margin-top:4px}
+  .mj-seat-2 .mj-seat-discard{grid-area:latest;border:0;margin:0;padding:0}
+  .mj-seat:not(.mj-seat-0) .mj-latest .mj-tile{--tile-width:21px;--tile-height:31px}
+  .mj-seat:not(.mj-seat-0) .mj-hand .mj-tile{--tile-width:17px;--tile-height:25px}
   .mj-own-hand{gap:2px}
-  .mj-own-hand .mj-tile{border-bottom-width:2px;padding:0}
+  .mj-own-hand .mj-tile{--tile-width:min(29px,calc((100cqw - 26px)/14));border-bottom-width:2px;padding:0}
   .mj-own-hand .mj-tile-name{font-size:6px;line-height:8px}
+  .mj-rack{gap:4px 7px}
+  .mj-seat-0 .mj-rack{gap:5px 10px}
+  .mj-meld .mj-tile{--tile-width:22px;--tile-height:32px}
+  .mj-seat-0 .mj-meld .mj-tile{--tile-width:27px;--tile-height:39px}
   .mj-tile .mj-mark{font-size:7px;line-height:9px}
   .mj-river{max-height:90px}
   .mj-seat-discard{gap:7px}
