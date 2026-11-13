@@ -131,12 +131,14 @@
     const focused=document.activeElement,focusId=focused&&focused.id,focusData=focused&&focused.dataset&&focused.dataset.action?{...focused.dataset}:null;
     const oldNodes=document.querySelectorAll?Array.from(document.querySelectorAll('.own-gems .token,.own-bonuses .token,.gem-market .gem-card,.poker-seat .seat-stack')).map(e=>e.textContent):[];
     const detailStates=document.querySelectorAll?new Map(Array.from(document.querySelectorAll('.game-surface details,.achievement-group')).map(e=>[detailKey(e),e.open])):new Map();
+    const mahjongScroll=window.MahjongResults?.captureScroll(document);
     document.body.dataset.visual=profile&&profile.visual?'on':'off';
     let content=!profile?welcome():screen==='setup'?setup():screen==='game'&&profile.active?game():screen==='results'?results():home();
     document.getElementById('app').innerHTML='<div class="shell '+(screen==='game'?'game-shell':'')+'">'+title()+(error&&screen!=='setup'&&(screen!=='game'||!ui.error)?'<div class="notice error" role="alert">'+C.escape(error)+'</div>':'')+content+'<p class="footer-note">v'+C.version+' · 六款游戏独立存档 · 正式存档请导出 JSON</p></div>'+(ui.save?saveDialog():ui.help&&profile&&profile.active?help():'')+(notice?'<div class="app-toast" role="status">'+C.escape(notice)+'</div>':'');
     const active=profile&&profile.active,view=screen+':'+(active&&screen==='game'?active.type+(active.type==='athlete'&&['draft','lineup'].includes(active.game.phase)?':'+active.game.phase:''):'');
     if(view!==renderedView&&typeof window.scrollTo==='function')window.scrollTo(0,0);renderedView=view;
     if(document.querySelectorAll){document.querySelectorAll('.game-surface details,.achievement-group').forEach(e=>{if(detailStates.has(detailKey(e)))e.open=detailStates.get(detailKey(e))});document.querySelectorAll('.own-gems .token,.own-bonuses .token,.gem-market .gem-card,.poker-seat .seat-stack').forEach((e,i)=>{if(oldNodes[i]!==undefined&&oldNodes[i]!==e.textContent)e.classList.add('changed')})}
+    window.MahjongResults?.restoreTableView(document,detailStates,mahjongScroll);
     if(!ui.help&&!ui.save){const target=focusId?document.getElementById(focusId):focusData&&document.querySelectorAll?Array.from(document.querySelectorAll('[data-action]')).find(e=>Object.keys(focusData).every(k=>e.dataset[k]===focusData[k])):null;if(target&&target.focus)target.focus({preventScroll:true});else if(focusData&&['app-close-help','app-close-save'].includes(focusData.action)){const button=document.querySelector('[data-action="'+(focusData.action==='app-close-help'?'app-help':'app-save')+'"]');if(button)button.focus({preventScroll:true})}}
     const dialog=document.getElementById(ui.save?'save-dialog':'game-help');if((ui.save||ui.help)&&dialog&&dialog.showModal)dialog.showModal();
     scheduleBot();

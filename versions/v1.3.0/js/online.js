@@ -163,6 +163,7 @@
     }
     for (const field of app.querySelectorAll('[data-password-for]')) passwordDrafts.set(field.dataset.passwordFor, field.value);
     const details = new Map([...app.querySelectorAll('details[data-detail-id]')].map(item => [item.dataset.detailId, item.open]));
+    const mahjongScroll = window.MahjongResults?.captureScroll(app);
     app.classList.toggle('online-playing', state?.room.phase === 'playing');
     app.innerHTML = `<header class="topbar"><a class="brand" href="/">桌边 <span class="muted">/ 联机</span></a><nav class="top-actions" aria-label="页面导航与状态"><a class="nav-link" href="/index.html">游客单机 <span aria-hidden="true">↗</span></a>${me ? `<span class="online-account">${esc(me.nick)} · ID ${esc(me.id.slice(0, 8))}</span><span class="connection-pill ${connected ? 'is-connected' : 'online-disconnected'}">${connected ? '已连接' : '连接中…'}</span>` : ''}</nav></header>
       ${error ? `<p class="notice error online-error" role="alert">${esc(error)}</p>` : ''}${notice ? `<p class="notice online-success" role="status">${esc(notice)}</p>` : ''}
@@ -176,6 +177,7 @@
     }
     for (const field of app.querySelectorAll('[data-password-for]')) if (passwordDrafts.has(field.dataset.passwordFor)) field.value = passwordDrafts.get(field.dataset.passwordFor);
     for (const item of app.querySelectorAll('details[data-detail-id]')) if (details.has(item.dataset.detailId)) item.open = details.get(item.dataset.detailId);
+    window.MahjongResults?.restoreTableView(app, details, mahjongScroll);
     const replacement = focusId ? document.getElementById(focusId) : focusKey && focusName ? [...app.querySelectorAll('form[data-draft-key]')].find(form => form.dataset.draftKey === focusKey)?.elements.namedItem(focusName) : focusPassword ? [...app.querySelectorAll('[data-password-for]')].find(field => field.dataset.passwordFor === focusPassword) : null;
     if (replacement && replacement.tagName === focus.tagName && replacement.type !== 'hidden') replacement.focus({ preventScroll: true });
     const view = !me ? 'identity' : state ? `${state.room.id}:${state.room.phase}` : `lobby:${lobbyMode}`;
