@@ -180,9 +180,11 @@ test('online fixed four seats, authenticated simultaneous seats, secrecy, sessio
   const ctx=online(),{hub,users,room}=ctx;assert.equal(room.seats.length,4);assert(M.validate(room.game,4));
   const viewer=users[0].peer.packets.filter(p=>p.type==='state').at(-1);assert(viewer.mahjongResult);assert.equal(viewer.mahjongResult.participants[0],'麻友0');assert(!viewer.mahjongResult.wall);assert(!viewer.mahjongResult.players);
   const html=viewer.gameHtml;
-  const covered=[...html.matchAll(/class="mj-covered" aria-label="手牌 (\d+) 张"/g)].map(match=>Number(match[1]));
+  const covered=[...html.matchAll(/class="mj-covered" role="img" aria-label="手牌 \d+ 张">(.*?)<\/div>/g)]
+    .map(match=>[...match[1].matchAll(/<span><\/span>/g)].length);
   assert.deepEqual(covered.sort((a,b)=>a-b),Array.from(room.game.players.slice(1),p=>p.hand.length).sort((a,b)=>a-b));
-  assert.equal((html.match(/class="mj-tile mj-back/g)||[]).length,3);
+  const wall=html.match(/class="mj-wall-tiles" role="img" aria-label="牌墙余牌 \d+ 张">(.*?)<\/div>/);
+  assert.equal([...wall[1].matchAll(/<span><\/span>/g)].length,room.game.wall.length);
   assert(!html.includes('mj-winning-hand'));
   assert(!html.includes('undefined'));assert(!html.includes('NaN'));assert(room.turnDeadline>Date.now());
   assert.throws(()=>hub.gameAction(room,users[1],{action:'m-end',data:{}}),/房主/);
@@ -253,7 +255,7 @@ test('selection is a preview, latest discards belong to seats and special faces 
   hub.preview(room,users[seat],{action:'m-select',data:{tile,step:s.step}});assert.equal(JSON.stringify(s),before);
   const html=users[seat].peer.packets.filter(p=>p.type==='state').at(-1).gameHtml;
   assert(html.includes('is-selected'));assert(!html.includes('庄家不加斤'));assert(html.includes('class="mj-river"'));
-  assert.equal((html.match(/最新出牌/g)||[]).length,4);assert(html.includes('data-action="m-select"'));
+  assert.equal((html.match(/class="mj-river-zone/g)||[]).length,4);assert(html.includes('data-action="m-select"'));
   assert(M.tileHtml(33*4).includes('<rect'));assert(M.tileHtml(18*4).includes('<path'));assert(!M.tileHtml(33*4).includes('▱'));
   hub.closeRoom(room,users[0]);
 });

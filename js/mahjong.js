@@ -389,7 +389,7 @@
         '<p class="muted">结算后显示最新一局。</p>')+'</div></aside>';
   }
   function riverHtml(discards, seatName, relative, tile) {
-    const lineLength=relative%2?5:10;
+    const lineLength=relative%2?6:10;
     const lines=[];
     for(let start=0;start<discards.length;start+=lineLength) {
       lines.push('<div class="mj-river-line">'+discards.slice(start,start+lineLength).map((d,i)=>
@@ -406,6 +406,11 @@
     return player.melds.map(m=>meld(m.ids.map(id=>tile(m.kind==='concealed'&&!revealConcealed?null:id)).join(''),
       ({chi:'吃',peng:'碰',concealed:'暗杠',exposed:'明杠',added:'补杠'})[m.kind]))
       .concat(player.specials.map(m=>meld(tile(m.id),m.units+' 杠'))).join('');
+  }
+  function coveredTiles(count, area, name) {
+    if(!count)return '';
+    return '<div class="'+area+'" role="img" aria-label="'+name+' '+count+' 张">'+
+      '<span></span>'.repeat(count)+'</div>';
   }
   function render(s,ui={}) {
     const viewer=ui.viewer??0,mine=canAct(s,viewer),host=!s.online||ui.isHost;
@@ -448,7 +453,7 @@
       return riverHtml(discardsBySeat[seat],label(seat),relative,tile);
     };
     const seatHtml=i=>{
-      const p=s.players[i],relative=(i-viewer+4)%4,last=discardsBySeat[i].at(-1);
+      const p=s.players[i],relative=(i-viewer+4)%4;
       const own=i===viewer;
       const delta=roundResult?.delta[i];
       const hasOpened=roundResult?.rows.find(row=>row.seat===i)?.opened??opened(p);
@@ -459,19 +464,16 @@
         drawn:own&&!s.pending&&!roundResult&&s.lastDraw?.seat===i&&s.lastDraw.tile===id
       })).join(''):'';
       const handDisplay=hand?'<div class="mj-hand mj-own-hand">'+hand+'</div>':winner!==i?
-        '<span class="mj-covered" aria-label="手牌 '+p.hand.length+' 张">'+tile(null)+'<span aria-hidden="true">×'+p.hand.length+'</span></span>':'';
+        coveredTiles(p.hand.length,'mj-covered','手牌'):'';
       const melds=winner===i?'':meldsHtml(p,tile,own||!!roundResult);
       const rack=handDisplay||melds?'<div class="mj-rack">'+handDisplay+
         (melds?'<div class="mj-melds" role="group" aria-label="吃碰杠">'+melds+'</div>':'')+'</div>':'';
-      const latest=last?tile(last.id)+(last.taken?'<small>已被取走</small>':''):'<small>尚未出牌</small>';
       const actions=own?'<section class="mj-controls" aria-label="本局操作">'+controls+
         (ui.voiceBusy?'<small role="status">正在播报…</small>':'')+
         (ui.error?'<p class="field-error" role="alert">'+esc(ui.error)+'</p>':'')+'</section>':'';
-      return '<section class="mj-seat mj-seat-'+relative+(i===s.current?' current':'')+(i===winner?' is-winner':'')+'">'+
+      return '<section class="mj-seat mj-seat-'+relative+(i===s.current?' current':'')+'">'+
         '<header><strong>'+C.playerBadge(i,ui)+esc(label(i))+'</strong><span>'+status+'</span>'+amount+'</header>'+
-        rack+
-        '<div class="mj-seat-discard"><div class="mj-latest"><span>最新出牌</span>'+latest+'</div>'+actions+'</div>'+
-        (relative%2?river(relative):'')+'</section>';
+        rack+(actions?'<div class="mj-seat-discard">'+actions+'</div>':'')+'</section>';
     };
     const indicators='<div class="mj-indicators"><div class="mj-special-tiles"><div>皮子'+tile(s.indicator)+'</div><div>宝'+tile(s.joker*4)+
       '</div><div>可杠'+s.special.map(t=>tile(t*4)).join('')+'</div></div>'+
@@ -487,14 +489,15 @@
         (info.clean?'清水':'浑水')+esc(info.name)+'</strong><div class="mj-winning-rack"><div class="mj-winning-tiles">'+winningTiles+'</div>'+
         (melds?'<div class="mj-melds" aria-label="赢家吃碰杠">'+melds+'</div>':'')+'</div></section>';
     }
-    const rivers='<div class="mj-center">'+river(2)+winningHand+river(0)+'</div>';
+    const rivers='<div class="mj-center" aria-label="各家出牌">'+river(2)+river(1)+river(3)+winningHand+river(0)+'</div>';
     const logKey='mahjong-log-'+esc(s.sessionId);
     const actionLog='<aside class="mj-sidebar mj-action-log" aria-label="行牌记录"><details class="mj-sidebar-inner"'+
       ' data-mj-desktop-open data-detail-id="'+logKey+'"><summary>行牌记录</summary>'+
       '<div class="mj-log-scroll" tabindex="0" data-mj-scroll="'+logKey+'" data-mj-follow><ol>'+s.log.slice().reverse().map(line=>'<li>'+esc(line)+'</li>').join('')+
       '</ol></div></details></aside>';
+    const wall=coveredTiles(s.wall.length,'mj-wall-tiles','牌墙余牌');
     return '<section class="mj-game"><div class="mj-board'+(roundResult?' is-settled':'')+(winningHand?' has-winner':'')+'"><div class="mj-round"><strong>第 '+s.round+
-      ' 局</strong><span>牌墙余 '+s.wall.length+' 张</span></div>'+indicators+[2,1,3].map(r=>seatHtml((viewer+r)%4)).join('')+
+      ' 局</strong><span>'+(wall?'牌墙':'牌墙已空')+'</span>'+wall+'</div>'+indicators+[2,1,3].map(r=>seatHtml((viewer+r)%4)).join('')+
       rivers+seatHtml(viewer)+'</div>'+resultsHtml(s)+actionLog+'</section>';
   }
   C.Games.mahjong={create,act,bot,validate,restore,render,canAct,ownOptions,analyse,calculate,summary,tileHtml,names,type,specialTiles,opened,units,defaultPrices,prices,money,voiceEvents};
