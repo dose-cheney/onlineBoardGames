@@ -19,7 +19,7 @@
     return { special:[31,t], joker:t < 27 ? Math.floor(t / 9) * 9 + (t % 9 + 1) % 9 : 27 + (t - 27 + 1) % 7 };
   }
   function log(s, text) { s.log.unshift(text); s.log = s.log.slice(0,80); }
-  function opened(p) { return p.melds.some(m => m.kind !== 'concealed'); }
+  function opened(p) { return p.melds.length > 0 || p.specials.length > 0; }
   function units(p) { return p.specials.reduce((n,m) => n + m.units,0) + p.melds.reduce((n,m) => n + (m.kind === 'concealed' ? 2 : ['exposed','added'].includes(m.kind) ? 1 : 0),0); }
   function sort(p) { p.hand.sort((a,b) => a-b); }
   function create(n, options = {}) {
@@ -107,20 +107,22 @@
     results.sort((a,b)=>(b.base*(b.clean?2:1))-(a.base*(a.clean?2:1)));
     return results[0]||null;
   }
-  function calculate(s, winner, info) {
+  function calculate(s, winner, info, from = null) {
     const payAll=!opened(s.players[winner])||info.seven;
     const rows=s.players.map((p,i)=>{
-      const eligible=i!==winner&&(payAll||opened(p)), gang=units(s.players[winner])+units(p);
+      const dealtIn=i===from&&info.source==='discard';
+      const eligible=i!==winner&&(payAll||opened(p)||dealtIn), gang=units(s.players[winner])+units(p);
       const jin=eligible?Math.min(16,info.base*(info.clean?2:1)*2**Math.min(gang+(info.flower?1:0),8)):0;
-      return {seat:i,eligible,opened:opened(p),units:gang,jin,cents:jin?s.prices[jin]:0,reason:i===winner?'胡牌方':eligible?(payAll?'门面清／七对：三家付款':'已开口'): '未开口免付'};
+      const reason=i===winner?'胡牌方':dealtIn?'点炮付款':payAll?'门面清／七对：三家付款':opened(p)?'已开口':'未开口免付';
+      return {seat:i,eligible,opened:opened(p),units:gang,jin,cents:jin?s.prices[jin]:0,reason};
     });
     const full=rows.filter(r=>r.jin===16),top=full.length===3?'金顶':full.length===2?'银顶':'普通';
     if(full.length>=2)full.forEach(r=>r.cents=s.prices[full.length===3?'gold':'silver']);
-    const delta=rows.map(r=>-r.cents);delta[winner]=C.sum(rows.map(r=>r.cents));
+    const delta=rows.map(r=>r.cents?-r.cents:0);delta[winner]=C.sum(rows.map(r=>r.cents));
     return {rows,delta,top};
   }
   function finishRound(s, winner = null, info = null, from = null) {
-    const settlement=winner===null?{rows:[],delta:[0,0,0,0],top:'流局'}:calculate(s,winner,info);
+    const settlement=winner===null?{rows:[],delta:[0,0,0,0],top:'流局'}:calculate(s,winner,info,from);
     const result={round:s.round,at:now(),winner,from,info, ...settlement};
     s.totals=s.totals.map((v,i)=>v+settlement.delta[i]);s.ledger.push(result);s.roundResult=result;s.roundPending=true;s.pending=null;s.current=-1;s.lastDraw=null;s.step++;
     log(s,winner===null?'牌墙已摸完，本局流局。':label(winner)+' '+(info.clean?'清水':'浑水')+info.name+' · '+settlement.top+' · 本局 +'+money(settlement.delta[winner])+' 元。');
@@ -134,15 +136,20 @@
     if(s.finished||s.roundPending||s.pending||s.current!==seat)return [];
     const p=s.players[seat], out=[];
     if(s.lastDraw?.seat===seat&&analyse(s,seat,null,!!s.lastDraw?.flower,true))out.push({action:'m-hu',label:'胡牌'});
-    if(s.wall.length) {
-      for(const id of p.hand)if(s.special.includes(type(id))||type(id)===s.joker)out.push({action:'m-special',tile:id,label:'杠 '+names[type(id)]+(type(id)===s.joker?' · 计两杠':'')});
-      for(let t=0;t<34;t++) {
-        if(s.special.includes(t)||t===s.joker)continue;
-        if(p.hand.filter(id=>type(id)===t).length===4)out.push({action:'m-gang',kind:'concealed',tile:t,label:'暗杠 '+names[t]});
-        if(p.hand.some(id=>type(id)===t)&&p.melds.some(m=>m.kind==='peng'&&type(m.ids[0])===t))out.push({action:'m-gang',kind:'added',tile:t,label:'补杠 '+names[t]});
-      }
+    const lockedTypes=new Set([...s.special,s.joker]);
+    for(const id of p.hand) {
+      const t=type(id);
+      if(lockedTypes.has(t))out.push({action:'m-special',tile:id,label:'杠 '+names[t]+(t===s.joker?' · 计两杠':'')});
     }
-    for(const id of p.hand)if(!s.special.includes(type(id)))out.push({action:'m-discard',tile:id,label:'打出 '+names[type(id)]});
+    for(const t of new Set(p.hand.map(type))) {
+      if(lockedTypes.has(t))continue;
+      const concealed=p.hand.filter(id=>type(id)===t).length===4;
+      const added=p.melds.some(m=>m.kind==='peng'&&type(m.ids[0])===t);
+      if(!concealed&&!added)continue;
+      lockedTypes.add(t);
+      out.push({action:'m-gang',kind:concealed?'concealed':'added',tile:t,label:(concealed?'暗杠 ':'补杠 ')+names[t]});
+    }
+    for(const id of p.hand)if(!lockedTypes.has(type(id)))out.push({action:'m-discard',tile:id,label:'打出 '+names[type(id)]});
     return out;
   }
   function responseOptions(s, seat, tile, from, kind) {
@@ -161,11 +168,29 @@
     }
     return out;
   }
-  function openResponses(s, tile, from, kind) {
+  function responseOffers(s, tile, from, kind) {
     const offers=[];
     for(let k=1;k<4;k++) {const seat=(from-k+4)%4,options=responseOptions(s,seat,tile,from,kind);if(options.length)offers.push({seat,options});}
+    return offers;
+  }
+  function openResponses(s, tile, from, kind) {
+    const offers=responseOffers(s,tile,from,kind);
     s.pending={id:s.step+1,tile,from,kind,offers,answers:{}};s.step++;updateResponder(s);
     if(!offers.length)resolve(s);
+  }
+  function restore(s) {
+    const pending=s.pending;
+    if(!pending)return;
+    // Saved response windows may predate counting every gang as opening.
+    pending.offers=responseOffers(s,pending.tile,pending.from,pending.kind);
+    for(const [seat,answer] of Object.entries(pending.answers)) {
+      const offer=pending.offers.find(o=>o.seat===Number(seat));
+      if(!offer||answer.action!=='m-pass'&&!offer.options.some(o=>o.action===answer.action&&o.start===answer.start)) {
+        delete pending.answers[seat];
+      }
+    }
+    updateResponder(s);
+    finishResponses(s);
   }
   function updateResponder(s) {
     const pending=s.pending,unanswered=pending.offers.filter(o=>!Object.hasOwn(pending.answers,o.seat));
@@ -323,7 +348,7 @@
     return options.button?'<button class="'+cls+'" data-action="m-select" data-tile="'+id+'" data-step="'+options.step+'" aria-label="选择'+names[t]+'" aria-pressed="'+!!options.selected+'" title="'+names[t]+'">'+body+'</button>':'<span class="'+cls+'" role="img" aria-label="'+names[t]+'" title="'+names[t]+'">'+body+'</span>';
   }
   function resultsHtml(s) {
-    return '<section class="mj-ledger"><div class="row between"><h2>本场账单'+(s.finished?' · 已结束':'')+'</h2><button data-mj-export="'+s.sessionId+'">下载本场结果</button></div><p class="muted">'+esc(new Date(s.startedAt).toLocaleString('zh-CN'))+' — '+(s.endedAt?esc(new Date(s.endedAt).toLocaleString('zh-CN')):'进行中')+' · '+s.ledger.length+' 局 · 仅本场记账</p><div class="mj-totals">'+s.totals.map((v,i)=>'<div><span>'+esc(s.participantNames[i])+'</span><b class="'+(v>0?'win':'')+'">'+(v>0?'+':'')+money(v)+' 元</b></div>').join('')+'</div><details data-detail-id="mahjong-ledger" '+(s.roundPending?'open':'')+'><summary>逐局明细与付款依据</summary>'+s.ledger.slice().reverse().map(r=>'<article class="mj-bill"><strong>第 '+r.round+' 局 · '+(r.winner===null?'流局':esc(s.participantNames[r.winner])+' · '+(r.info.clean?'清水':'浑水')+esc(r.info.name)+' · '+r.top)+'</strong>'+(r.rows.length?'<ul>'+r.rows.filter(x=>x.seat!==r.winner).map(x=>'<li>'+esc(s.participantNames[x.seat])+'：'+x.jin+' 斤 · '+money(x.cents)+' 元 · '+x.reason+' · 双方 '+x.units+' 杠</li>').join('')+'</ul>':'<p>本局无人收付。</p>')+'</article>').join('')+'</details></section>';
+    return '<section class="mj-ledger"><div class="row between"><strong>本场账单'+(s.finished?' · 已结束':'')+'</strong><button data-mj-export="'+s.sessionId+'">下载本场结果</button></div><p class="muted">'+esc(new Date(s.startedAt).toLocaleString('zh-CN'))+' — '+(s.endedAt?esc(new Date(s.endedAt).toLocaleString('zh-CN')):'进行中')+' · '+s.ledger.length+' 局 · 仅本场记账</p><div class="mj-totals">'+s.totals.map((v,i)=>'<div><span>'+esc(s.participantNames[i])+'</span><b class="'+(v>0?'win':'')+'">'+(v>0?'+':'')+money(v)+' 元</b></div>').join('')+'</div><details data-detail-id="mahjong-ledger"><summary>逐局明细与付款依据</summary>'+s.ledger.slice().reverse().map(r=>'<article class="mj-bill"><strong>第 '+r.round+' 局 · '+(r.winner===null?'流局':esc(s.participantNames[r.winner])+' · '+(r.info.clean?'清水':'浑水')+esc(r.info.name)+' · '+r.top)+'</strong>'+(r.rows.length?'<ul>'+r.rows.filter(x=>x.seat!==r.winner).map(x=>'<li>'+esc(s.participantNames[x.seat])+'：'+x.jin+' 斤 · '+money(x.cents)+' 元 · '+x.reason+' · 双方 '+x.units+' 杠</li>').join('')+'</ul>':'<p>本局无人收付。</p>')+'</article>').join('')+'</details></section>';
   }
   function render(s,ui={}) {
     const viewer=ui.viewer??0,mine=canAct(s,viewer),host=!s.online||ui.isHost;
@@ -331,10 +356,10 @@
     const tile=(id,opts={})=>tileHtml(id,{skin:id!==null&&type(id)===type(s.indicator),joker:id!==null&&type(id)===s.joker,gang:id!==null&&(s.special.includes(type(id))||type(id)===s.joker),...opts});
     const buttons=choices=>choices.map(o=>'<button '+(o.action==='m-hu'?'class="mj-hu primary" ':'')+'data-action="'+o.action+'" data-step="'+s.step+'" '+(s.pending?'data-window="'+s.pending.id+'" ':'')+(o.tile!==undefined?'data-tile="'+o.tile+'" ':'')+(o.start!==undefined?'data-start="'+o.start+'" ':'')+(o.kind?'data-kind="'+o.kind+'" ':'')+'>'+esc(o.label)+'</button>').join('');
     let controls='';
-    if(s.finished)controls='<p class="notice">本场已结束，账单已保存到本浏览器。</p>';
+    if(s.finished)controls='<p class="mj-turn">本场已结束，账单已保存。</p>';
     else if(s.roundPending) {
       const r=s.roundResult,info=r.info;
-      controls='<p class="notice">'+(r.winner===null?'本局流局':esc(label(r.winner))+' '+(info.clean?'清水':'浑水')+esc(info.name)+' · '+r.top)+'</p>';
+      controls='<p class="mj-turn" role="status">'+(r.winner===null?'本局流局':esc(label(r.winner))+' '+(info.clean?'清水':'浑水')+esc(info.name)+' · '+r.top)+'</p>';
       if(info)controls+='<div class="mj-win-proof">'+tile(info.winTile??null)+'<p>'+({self:'自摸：自己摸进这张牌成胡。',flower:'杠上开花：自己杠后补进这张牌成胡。',discard:'接炮：胡的是'+esc(label(r.from))+'打出的这张牌。',rob:'抢杠：原已听牌，胡的是'+esc(label(r.from))+'碰后补杠的这张牌；按开花计分。'})[info.source|| (info.self?'self':'discard')]+' '+(info.requires258?'将牌：'+names[info.pairType]+'（二五八将，允许宝补足）。':'本手符合牌型大胡条件。')+'</p></div>';
       controls+=host?buttons([{action:'m-next',label:'继续下一局'},{action:'m-end',label:'结束本场并结算'}]):'<p>等待房主继续下一局或结算。</p>';
     } else if(s.pending) {
@@ -343,7 +368,7 @@
       if(mine){
         const candidates=offer.options.filter(o=>['m-chi','m-peng'].includes(o.action)||o.action==='m-claim-gang'&&selection!==null&&type(selection)===type(s.pending.tile));
         controls+=buttons([...(hu?[hu]:[]),...candidates,{action:'m-pass',label:selection===null?(hu?'放弃胡牌':'不吃不碰，过'):'继续出牌（先放弃本次响应）'}]);
-        if(selection!==null)controls+='<p class="action-hint">已选 '+names[type(selection)]+'；本次不会把它打出，响应结束后才继续行牌。</p>';
+        if(selection!==null)controls+='<small>已选 '+names[type(selection)]+'，响应结束后才继续出牌。</small>';
       }
     } else {
       const options=mine?ownOptions(s,viewer):[],hu=options.find(o=>o.action==='m-hu');
@@ -351,11 +376,48 @@
       if(hu)controls+=buttons([{...hu,label:'可以自摸胡牌'}]);
       if(selection!==null&&mine)controls+=buttons(options.filter(o=>o.action!=='m-hu'&&(o.action==='m-gang'?o.tile===type(selection):o.tile===selection)).map(o=>({...o,label:o.action==='m-discard'?'确认打出 '+names[type(selection)]:o.label})));
     }
+    const roundResult=s.roundPending||s.finished?s.roundResult:null;
+    const lastDiscards=Array(4).fill(null);
+    for(const discard of s.discards)lastDiscards[discard.seat]=discard;
     const seatHtml=i=>{
-      const p=s.players[i],reveal=i===viewer||s.roundPending||s.finished,relative=(i-viewer+4)%4,last=s.discards.filter(d=>d.seat===i).at(-1);
-      return '<section class="mj-seat mj-seat-'+relative+' '+(i===s.current?'current':'')+'"><header><strong>'+C.playerBadge(i,ui)+esc(label(i))+'</strong><span>'+(i===s.dealer?'庄 · ':'')+(opened(p)?'已开口':'未开口')+' · '+units(p)+' 杠 · '+money(s.totals[i])+' 元</span></header><div class="mj-hand '+(i===viewer?'mj-own-hand':'')+'">'+p.hand.map(id=>tile(reveal?id:null,{button:i===viewer&&mine,step:s.step,selected:selection===id,drawn:i===viewer&&!s.pending&&!s.roundPending&&!s.finished&&s.lastDraw?.seat===i&&s.lastDraw.tile===id})).join('')+'</div><div class="mj-melds">'+p.melds.map(m=>'<span class="mj-meld">'+m.ids.map(id=>tile(m.kind==='concealed'&&!reveal?null:id)).join('')+'<small>'+({chi:'吃',peng:'碰',concealed:'暗杠',exposed:'明杠',added:'补杠'})[m.kind]+'</small></span>').join('')+p.specials.map(m=>'<span class="mj-meld">'+tile(m.id)+'<small>'+m.units+' 杠</small></span>').join('')+'</div><div class="mj-seat-discard"><span>最新出牌</span>'+(last?tile(last.id)+'<small>'+(last.taken?'已被取走':'')+'</small>':'<small>尚未出牌</small>')+'</div><details class="mj-seat-history" data-detail-id="mj-river-'+i+'"><summary>本家出牌记录</summary>'+s.discards.filter(d=>d.seat===i).map(d=>tile(d.id)).join('')+'</details></section>';
+      const p=s.players[i],relative=(i-viewer+4)%4,last=lastDiscards[i];
+      const own=i===viewer,reveal=own||!!roundResult;
+      const delta=roundResult?.delta[i];
+      const hasOpened=roundResult?.rows.find(row=>row.seat===i)?.opened??opened(p);
+      const status=(i===s.dealer?'庄 · ':'')+(hasOpened?'已开口':'未开口')+' · '+units(p)+' 杠';
+      const amount=delta===undefined?'':'<b class="mj-round-amount">'+(delta>0?'+':'')+money(delta)+' 元</b>';
+      const hand=p.hand.map(id=>tile(reveal?id:null,{
+        button:own&&mine,step:s.step,selected:selection===id,
+        drawn:own&&!s.pending&&!roundResult&&s.lastDraw?.seat===i&&s.lastDraw.tile===id
+      })).join('');
+      const melds=p.melds.map(m=>'<span class="mj-meld">'+m.ids.map(id=>tile(m.kind==='concealed'&&!reveal?null:id)).join('')+
+        '<small>'+({chi:'吃',peng:'碰',concealed:'暗杠',exposed:'明杠',added:'补杠'})[m.kind]+'</small></span>')
+        .concat(p.specials.map(m=>'<span class="mj-meld">'+tile(m.id)+'<small>'+m.units+' 杠</small></span>')).join('');
+      const latest=last?tile(last.id)+(last.taken?'<small>已被取走</small>':''):'<small>尚未出牌</small>';
+      const actions=own?'<section class="mj-controls" aria-label="本局操作">'+controls+
+        (ui.error?'<p class="field-error" role="alert">'+esc(ui.error)+'</p>':'')+'</section>':'';
+      return '<section class="mj-seat mj-seat-'+relative+(i===s.current?' current':'')+'">'+
+        '<header><strong>'+C.playerBadge(i,ui)+esc(label(i))+'</strong><span>'+status+'</span>'+amount+'</header>'+
+        '<div class="mj-hand'+(own?' mj-own-hand':'')+'">'+hand+'</div>'+
+        (melds?'<div class="mj-melds">'+melds+'</div>':'')+
+        '<div class="mj-seat-discard"><div class="mj-latest"><span>最新出牌</span>'+latest+'</div>'+actions+'</div></section>';
     };
-    return '<section class="mj-game"><div class="mj-toolbar"><div><span class="eyebrow">WUXUE / PRIVATE TABLE</span><h2>第 '+s.round+' 局</h2><span class="muted">牌墙余 '+s.wall.length+' 张</span></div><div class="mj-indicators"><div>皮子'+tile(s.indicator)+'</div><div>宝'+tile(s.joker*4)+'</div><div>可杠'+s.special.map(t=>tile(t*4)).join('')+'</div></div></div><div class="mj-board">'+[2,1,3].map(r=>seatHtml((viewer+r)%4)).join('')+'<div class="mj-center"><span>历史出牌</span><div class="mj-river">'+s.discards.map(d=>'<span class="mj-river-entry '+(d.taken?'is-taken':'')+'" title="'+esc(label(d.seat))+'打出'+names[type(d.id)]+(d.taken?'（已被取走）':'')+'">'+tile(d.id)+'</span>').join('')+'</div></div>'+seatHtml(viewer)+'</div><section class="mj-controls"><div class="actions">'+controls+'</div>'+(ui.error?'<p class="field-error" role="alert">'+esc(ui.error)+'</p>':'')+'</section>'+resultsHtml(s)+'<details class="mj-wall-guide" data-detail-id="mahjong-wall"><summary>骰子 '+s.dice.join(' + ')+' · 翻皮与抓牌位置</summary><p>从庄家起顺时针数 '+C.sum(s.dice)+' 位，选中'+esc(label(s.wallSeat))+'的牌墙；第 '+s.flipStack+' 垛上牌翻出 '+names[type(s.indicator)]+'。从该垛后跳 '+s.skip+' 垛，再从'+esc(label(s.startWall))+'牌墙第 '+s.startStack+' 垛起抓。</p></details><details class="table-details" data-detail-id="mahjong-log"><summary>最近行牌过程</summary><div class="log">'+s.log.map(t=>'<div>'+esc(t)+'</div>').join('')+'</div></details></section>';
+    const indicators='<div class="mj-indicators"><div>皮子'+tile(s.indicator)+'</div><div>宝'+tile(s.joker*4)+
+      '</div><div>可杠'+s.special.map(t=>tile(t*4)).join('')+'</div></div>';
+    const river='<div class="mj-center"><span>历史出牌</span><div class="mj-river'+(s.discards.length>48?' is-dense':'')+'">'+s.discards.map(d=>
+      '<span class="mj-river-entry'+(d.taken?' is-taken':'')+'" title="'+esc(label(d.seat))+'打出'+names[type(d.id)]+
+      (d.taken?'（已被取走）':'')+'">'+tile(d.id)+'</span>').join('')+'</div></div>';
+    const wallGuide='<details class="mj-table-detail" data-detail-id="mahjong-wall"><summary>骰子 '+s.dice.join(' + ')+
+      ' · 翻皮与抓牌</summary><div class="mj-detail-panel"><p>从庄家起顺时针数 '+C.sum(s.dice)+' 位，选中'+esc(label(s.wallSeat))+
+      '的牌墙；第 '+s.flipStack+' 垛上牌翻出 '+names[type(s.indicator)]+'。从该垛后跳 '+s.skip+' 垛，再从'+
+      esc(label(s.startWall))+'牌墙第 '+s.startStack+' 垛起抓。</p></div></details>';
+    return '<section class="mj-game"><div class="mj-board"><div class="mj-round"><strong>第 '+s.round+
+      ' 局</strong><span>牌墙余 '+s.wall.length+' 张</span></div>'+indicators+[2,1,3].map(r=>seatHtml((viewer+r)%4)).join('')+
+      river+seatHtml(viewer)+'</div><div class="mj-table-tools">'+wallGuide+
+      '<details class="mj-table-detail" data-detail-id="mahjong-log"><summary>行牌记录</summary><div class="mj-detail-panel log">'+
+      s.log.map(t=>'<div>'+esc(t)+'</div>').join('')+'</div></details>'+
+      '<details class="mj-table-detail mj-bill-detail" data-detail-id="mahjong-session"><summary>本场账单</summary>'+
+      resultsHtml(s)+'</details></div></section>';
   }
-  C.Games.mahjong={create,act,bot,validate,render,canAct,ownOptions,analyse,calculate,summary,tileHtml,names,type,specialTiles,opened,units,defaultPrices,prices,money};
+  C.Games.mahjong={create,act,bot,validate,restore,render,canAct,ownOptions,analyse,calculate,summary,tileHtml,names,type,specialTiles,opened,units,defaultPrices,prices,money};
 })();

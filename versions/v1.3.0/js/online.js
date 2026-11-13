@@ -94,11 +94,11 @@
       scout: ['手牌顺序固定，从连续位置选牌表演，或招募舞台两端的牌。', '开局可以整手翻面；之后不能重排。先点选组合查看预览，再确认表演；招募时选择数字朝向和插入位置。'],
       poker: ['轮到你时，在底牌旁选择弃牌、过牌、跟注或加注。', '加注金额是本轮累计下注总额；旁边会显示本次需要支付多少。每手结束后由房主开启下一手；筹码仅用于游戏。'],
       athlete: ['先选队员，再挑选本场出赛角色；轮到你时掷骰或选择技能。', '每位角色只能参加一场，共四场。随机组队可跳过选角；需要技能选择时，操作按钮会显示在赛道附近。'],
-      mahjong: ['吃、碰可直接点按钮；出牌、杠先选牌再确认，胡牌有独立提醒，可放弃。', '固定四座，可用电脑补齐。清水与浑水按斤数结算，庄家不加斤。双方杠数相加，赖子杠和暗杠计两杠。门面清、七对赢牌时三家都付款；其他情况未开口者免付。16斤封顶，银顶两家各10元，金顶三家各15元（按开局金额）。抢杠仅限补杠，按杠上开花算。两骰和从庄家起顺时针选牌墙，大点数翻该垛上牌；翻皮后跳过皮子点数垛（字牌跳1垛）再抓。单张特殊杠不算开口；多个牌型取最高，风一色暂按16斤，赢家坐庄。每局结束可继续或结算本场，参与人的结果自动缓存在本机，可下载JSON。'],
+      mahjong: ['吃、碰可直接点按钮；出牌、杠先选牌再确认，胡牌有独立提醒，可放弃。', '固定四座，可用电脑补齐。清水与浑水按斤数结算，庄家不加斤。双方杠数相加，赖子杠和暗杠计两杠。门面清、七对赢牌时三家都付款；其他情况由已开口者和点炮者付款，点炮未开口也要付。16斤封顶，银顶两家各10元，金顶三家各15元（按开局金额）。抢杠仅限补杠，按杠上开花算。两骰和从庄家起顺时针选牌墙，大点数翻该垛上牌；翻皮后跳过皮子点数垛（字牌跳1垛）再抓。所有杠都算开口。手里能杠的牌只能杠，宝也不能打出。手牌和面子全是二、五、八就是将一色；多个牌型取最高，风一色暂按16斤，赢家坐庄。每局结束可继续或结算本场，参与人的结果自动缓存在本机，可下载JSON。'],
       flip7: ['轮到你时，选择“继续翻一张”或“收分”。', '重复数字会爆牌，本轮 0 分；集齐七种数字加 15 分并结束本轮。特殊牌出现时按提示选目标，累计至少 200 分且独自领先获胜。']
     };
     const [action, rule] = tips[room.options.type];
-    return `<details class="online-guide" data-detail-id="game-guide"><summary>玩法与操作 · ${names[room.options.type]}</summary><p><strong>${action}</strong></p><p>${rule}</p><p class="muted">快捷短语在屏幕底部，消息显示在对应玩家头像旁。联机查看说明时，对局与操作倒计时继续。</p></details>`;
+    return `<details class="online-guide" data-detail-id="game-guide"><summary>玩法与操作 · ${names[room.options.type]}</summary><p><strong>${action}</strong></p><p>${rule}</p><p class="muted">消息显示在对应玩家头像旁。联机查看说明时，对局与操作倒计时继续。</p></details>`;
   }
 
   function seatCard(s, index, room) {
@@ -132,6 +132,8 @@
     const waiting = [...room.members.filter(m => room.phase !== 'lobby' && m.seat < 0), ...room.queue];
     const readyButton = `<button class="${mine?.ready ? '' : 'primary'}" data-ui="ready">${mine?.ready ? '取消准备' : '准备好了'}</button>`;
     const timing = room.options.type === 'poker' && room.options.mode === 'cash' ? '下一手' : '下一整局';
+    const mahjongPlaying = room.options.type === 'mahjong' && room.phase === 'playing';
+    const emoteButtons = `<div class="online-emote-buttons">${emotes.map(x => `<button data-ui="emote" data-phrase="${esc(x)}">${esc(x)}</button>`).join('')}</div>`;
     const management = `${host ? '<button data-ui="close-room">关闭房间</button>' : ''}
       <div class="online-seat-list">${seats.map((s, i) => seatCard(s, i, room)).join('')}</div>
       ${waiting.length ? `<p>候场：${waiting.map(x => `${esc(x.nick)}（${x.ready ? '已准备' : '未准备'}）`).join('、')}</p>` : ''}
@@ -142,9 +144,10 @@
       ${room.turnDeadline && room.phase === 'playing' ? `<span>操作剩余 <time id="turn-clock" data-deadline="${room.turnDeadline}"></time></span>` : ''}</div>
       ${room.phase === 'playing' ? `<details class="online-room-details" data-detail-id="room-management"><summary>房间成员与管理</summary>${management}</details>` : management}
       ${room.phase === 'lobby' ? `<div class="online-compact">${readyButton}${host ? `<button class="primary" data-ui="start" ${prepared >= needed ? '' : 'disabled'}>开始本局</button>` : ''}</div><p class="footer-note">未准备的人可以稍后准备，${timing}自动入座。</p>` : !seated && mine ? `<div class="online-compact">${readyButton}<span class="muted">${timing}有空位时自动入座。</span></div>` : ''}
-      ${room.phase === 'finished' && host ? '<button class="primary" data-ui="rematch">返回准备下一局</button>' : ''}${guide(room)}</section>
+      ${room.phase === 'finished' && host ? '<button class="primary" data-ui="rematch">返回准备下一局</button>' : ''}${guide(room)}
+      ${mahjongPlaying ? `<details class="online-mahjong-emotes" data-detail-id="mahjong-emotes"><summary>快捷短语</summary>${emoteButtons}</details>` : ''}</section>
       ${room.phase !== 'lobby' ? `<div class="online-game"><div class="game-surface game-${room.options.type}">${gameHtml}</div>${transferPanel(room)}</div>` : ''}
-      ${room.phase === 'playing' ? `<nav class="online-emote-dock" aria-label="牌桌快捷短语"><span>快捷短语</span><div class="online-emote-buttons">${emotes.map(x => `<button data-ui="emote" data-phrase="${esc(x)}">${esc(x)}</button>`).join('')}</div></nav>` : ''}`;
+      ${room.phase === 'playing' && !mahjongPlaying ? `<nav class="online-emote-dock" aria-label="牌桌快捷短语"><span>快捷短语</span>${emoteButtons}</nav>` : ''}`;
   }
 
   function render() {

@@ -2,7 +2,7 @@
   'use strict';
   const C=window.GameCore,KEY='tablecorner-save-v1';
   const rules={
-    mahjong:'四人武穴麻将。逆时针行牌，吃上家、碰杠、胡牌。普通小胡须二五八将，已开口小胡最多一张赖子；大胡可带多个赖子，七对算大胡，抢杠按杠上开花。门面清只可自摸。庄家不加斤、无承包、无海底捞和全求人。16斤封顶；门面清或七对赢时三家都付款，其他牌型未开口者免付。',
+    mahjong:'四人武穴麻将。逆时针行牌，吃上家、碰杠、胡牌。普通小胡须二五八将，已开口小胡最多一张赖子；大胡可带多个赖子，七对算大胡，抢杠按杠上开花。门面清只可自摸。庄家不加斤、无承包、无海底捞和全求人。16斤封顶；门面清或七对赢时三家都付款，其他牌型由已开口者和点炮者付款。',
     splendor:'每回合只执行一项行动：拿 3 种不同宝石、在库存至少 4 枚时拿 2 枚同色、预留卡并领取金筹码，或购买卡牌。卡牌提供永久折扣；满足条件时得到贵族。有人到达 15 分后完成当前轮，分数最高者获胜，同分比较已购卡牌数。',
     scout:'手牌顺序不能调整。开局可将整手牌翻面，之后从连续位置打出相同数字或连续数字组合，压过场上的表演；也可以从表演两端招募一张并插入手牌。本轮可一次招募后立即表演。有人出完牌，或其表演被所有对手招募后，本轮结算。双人使用专用的每轮 3 次招募规则。',
     athlete:'组建你的队伍，参加四场掷骰竞速。每位选手只能上场一次，能力可触发连锁移动。每场前两名获得奖分，四场总分最高者获胜。',
@@ -23,7 +23,7 @@
   const tournamentRules='无限注德州扑克锦标赛。所有人使用相同初始筹码，不可补买，输光淘汰；最后留下的一人获得冠军。比赛筹码独立于钱包，不扣款或兑换。盲注可按设定手数翻倍，或全程固定；升盲在下一手开始时生效。同手淘汰时，手牌开始时筹码更多者名次靠前，相同筹码共享名次。';
   function pauseAll(p){Object.values(p.games).forEach(a=>{if(a)a.paused=true})}
   function hasGames(){return Object.values(profile.games).some(Boolean)}
-  function validateGames(p){Object.values(p.games).forEach(a=>{if(a){const engine=C.Games[a.type];if(!engine.validate(a.game,a.players))throw Error('当前对局数据损坏');engine.render(a.game)}})}
+  function validateGames(p){Object.values(p.games).forEach(a=>{if(a){const engine=C.Games[a.type];if(!engine.validate(a.game,a.players))throw Error('当前对局数据损坏');if(a.type==='mahjong')engine.restore(a.game);engine.render(a.game)}})}
   function loadCache(){try{const raw=localStorage.getItem(KEY);if(raw){const p=JSON.parse(raw);if(C.validProfile(p)){C.attachSlots(p);validateGames(p);profile=p;pauseAll(p);C.Achievements.check(p)}}}catch(e){}}
   function saveCache(){if(!profile)return;try{localStorage.setItem(KEY,JSON.stringify(profile))}catch(e){}}
   function title(){return '<header class="topbar"><button class="brand" data-action="app-home">桌边 <span class="muted">/ 单机桌游</span></button><nav class="top-actions" aria-label="页面导航与操作">'+(window.location&&/^https?:$/.test(window.location.protocol)&&!String(window.location.hostname||'').endsWith('.github.io')?'<a class="nav-link" href="/online.html">联机房间 <span aria-hidden="true">↗</span></a>':'')+'<button data-action="app-visual" '+(!profile?'disabled':'')+'>'+(profile&&profile.visual?'切换无图':'切换有图')+'</button><button data-action="app-save" '+(!profile?'disabled':'')+'>备份全部</button><button data-action="app-load">加载存档</button>'+(profile&&profile.active&&screen==='game'?'<button data-action="app-pause">'+(profile.active.paused?'继续':'暂停')+'</button>':'')+'</nav></header>'}
@@ -89,7 +89,7 @@
       flip7:'<li>数字 0 只有一张，1 有一张，2 有两张，依此到 12 有十二张，共 94 张牌。</li><li>分数 = 数字合计 × 倍率 + 加分牌 + 七张奖励 15。“×2”只翻倍数字分；特殊牌不计入七张。</li><li>冻结让目标立即收分；连翻三张必须连抽三张，其中冻结与再次连翻延后处理，爆牌或集齐七张则取消后续效果。</li><li>第二次机会抵消一次重复数字，随后轮到下一人。多余的机会牌交给仍在本轮且没有保护的玩家。</li><li>达到 200 分后最高分并列，全员加赛。仅在牌堆耗尽时重新洗入弃牌。</li>',
       poker:'<li>跟注显示本次要付的筹码；加注总额包含你在本轮已经下注的筹码。</li><li>牌型从强到弱：同花顺、四条、葫芦、同花、顺子、三条、两对、一对、高牌。A 可以组成 A、2、3、4、5 顺子。</li><li>同牌型比较点数，再比踢脚；摊牌页展示每人的最佳五张。</li><li>全下后只能争取自己参与的底池，边池会单独分配。离桌返还剩余桌面筹码。</li><li>桌面筹码用完可用钱包补买后继续；钱包不足以补满时，可用现有余额买入。补买不计作盈利。电脑筹码归零后，下一手自动补买初始金额；仍有筹码的电脑保留余额。</li>'
     };
-    extra.mahjong='<li>万、筒、条和字牌均为原创牌面。吃、碰可直接点按钮；出牌、杠先选手牌再确认，胡牌单独强提示。其他玩家的手牌在本局结束前保密。</li><li>两骰和从庄家起顺时针选牌墙，大点数定第几垛上牌为皮子；从翻皮后跳过皮子数字的垛数（字牌跳1垛），再从下一垛起抓。皮子留在台面。</li><li>红中通常与皮子可单张杠；北风翻皮时北风、发财可杠，红中为宝；红中翻皮时红中、白板可杠，发财为宝。特殊杠不算开口。</li><li>普通明杠、单张特殊杠计1杠；暗杠、赖子杠计2杠。每名付款家与胡家的杠数相加，每杠斤数乘2，杠上开花再乘2，最多16斤。抢杠须原本已听对方补杠的牌，按开花计分，但普通牌型仍须二五八将；不承包；多家胡按行牌顺序截胡。</li><li>清水／浑水普通胡基础2／1斤，七对4／2斤，清一色、将一色、碰碰胡8／4斤；风一色暂按16斤。多个牌型只取最高值，不额外叠加。庄家不加斤，赢家下局坐庄，流局连庄；牌墙摸完流局，不设海底。</li><li>胡家未开口或胡七对，三家都付款；否则付款方未开口免付。1、2斤1元，4斤2元，8斤4元，16斤8元（均可开局设置）；银顶两家各10元，金顶三家各15元。</li><li>每局结束可继续下一局或结束本场。人员更换前先结算本场，结果自动缓存，首页可下载JSON。电脑使用合法手牌与公开信息作决策。</li>';
+    extra.mahjong='<li>万、筒、条和字牌均为原创牌面。吃、碰可直接点按钮；出牌、杠先选手牌再确认，胡牌单独强提示。其他玩家的手牌在本局结束前保密。</li><li>两骰和从庄家起顺时针选牌墙，大点数定第几垛上牌为皮子；从翻皮后跳过皮子数字的垛数（字牌跳1垛），再从下一垛起抓。皮子留在台面。</li><li>红中通常与皮子可单张杠；北风翻皮时北风、发财可杠，红中为宝；红中翻皮时红中、白板可杠，发财为宝。手里能杠的牌只能杠，宝也不能打出。所有杠都算开口。</li><li>普通明杠、单张特殊杠计1杠；暗杠、赖子杠计2杠。每名付款家与胡家的杠数相加，每杠斤数乘2，杠上开花再乘2，最多16斤。抢杠须原本已听对方补杠的牌，按开花计分，但普通牌型仍须二五八将；不承包；多家胡按行牌顺序截胡。</li><li>清水／浑水普通胡基础2／1斤，七对4／2斤，清一色、将一色、碰碰胡8／4斤。手牌和面子全是二、五、八就是将一色；风一色暂按16斤。多个牌型只取最高值，不额外叠加。庄家不加斤，赢家下局坐庄，流局连庄；牌墙摸完流局，不设海底。</li><li>胡家未开口或胡七对，三家都付款；否则由已开口者和点炮者付款，点炮未开口也要付。1、2斤1元，4斤2元，8斤4元，16斤8元（均可开局设置）；银顶两家各10元，金顶三家各15元。</li><li>每局结束可继续下一局或结束本场。人员更换前先结算本场，结果自动缓存，首页可下载JSON。电脑使用合法手牌与公开信息作决策。</li>';
     if(tour)extra.poker='<li>跟注显示本次付出的筹码，加注输入本轮累计下注总额。摊牌使用两张底牌和五张公共牌组成最佳五张，边池分别结算。</li><li>你和电脑使用相同初始筹码，输光后永久淘汰；电脑不会自动补买，剩余筹码也不能兑换钱包资金。</li><li>按设定的手数升盲，下一手开始时生效；填 0 则固定盲注。庄位与盲注跳过已淘汰的座位，两人时庄位支付小盲。</li><li>名次按淘汰顺序决定。同手淘汰时，手牌开始时筹码更多者名次靠前，相同筹码共享名次。筹码排名只是当前进度。</li><li>淘汰后可按已确定的名次结算离桌，也可自动或逐手观战到冠军产生；名次未确定时退出会放弃本场。</li>';
     return '<dialog id="game-help" aria-labelledby="help-title"><div class="row between"><h2 id="help-title">'+C.names[k]+(tour?' · 锦标赛':'')+' · 规则速查</h2><button data-action="app-close-help" aria-label="关闭规则">关闭</button></div><p>'+(tour?tournamentRules:rules[k])+'</p><ul class="rule-list">'+extra[k]+'</ul><p class="action-hint">查看规则期间，计时和电脑行动暂停。关闭后继续。</p></dialog>';
   }

@@ -53,6 +53,15 @@ test('clear/turbid, 258 pair, closed self only, and big multi-joker hands',()=>{
   s.players[0].hand.push(s.wall.pop());assert.equal(M.analyse(s,0),null,'wrong hand count rejected');
 });
 
+test('all 2, 5 and 8 tiles win as 将一色 without four groups and a pair',()=>{
+  const s=fixture([[1,1,1,7,7,10,10,13,16,16,19,22,22,25]]);
+  s.lastDraw={seat:0,tile:s.players[0].hand.at(-1),flower:false};
+  M.act(s,'m-hu',{},0);
+  assert.deepEqual(plain(s.roundResult.info.kinds),['将一色']);
+  assert.equal(s.roundResult.info.base,4);
+  assert(M.validate(s,4));
+});
+
 test('price tiers, no dealer bonus, unopened exemptions, seven/closed exceptions and silver/gold',()=>{
   let s=fixture([small]);const base={base:1,clean:false,seven:false,flower:false};
   s.players[0].melds=[{kind:'peng',ids:[24,25,26],from:1}];
@@ -68,7 +77,7 @@ test('price tiers, no dealer bonus, unopened exemptions, seven/closed exceptions
   s.players[3].melds=[{kind:'peng',ids:[36,37,38],from:1}];r=M.calculate(s,0,base);assert.equal(r.rows[3].jin,4);assert.deepEqual(plain(r.delta),[2200,-1000,-1000,-200]);
   s.players[3].specials=[{id:23,units:2}];r=M.calculate(s,0,base);assert.equal(r.top,'金顶');assert.deepEqual(plain(r.delta),[4500,-1500,-1500,-1500]);
   s.players[0].melds=[];s.players[1].melds=[];s.players[2].melds=[];s.players[3].melds=[];
-  r=M.calculate(s,0,{...base,base:4});assert.equal(r.top,'金顶','unopened payers count toward gold for a closed win');assert.equal(C.sum(r.delta),0);
+  r=M.calculate(s,0,{...base,base:4});assert.equal(r.top,'金顶','special gangs are opening and count for gold');assert.equal(C.sum(r.delta),0);
   assert.throws(()=>M.prices({1:0}),/金额/);assert.throws(()=>M.prices({gold:500}),/金额/);
 });
 
@@ -92,11 +101,41 @@ test('simultaneous discard responses wait, win beats peng, and duplicates are re
   assert(b.roundPending);assert.equal(b.roundResult.winner,2,'hu beats a previously submitted peng');assert(M.validate(b,4));
 });
 
-test('single joker gang counts twice, is not opening, and draws from the tail',()=>{
+test('single joker gang opens the hand, counts twice and draws from the tail',()=>{
   const s=fixture([[...small.slice(0,13),5]]);s.lastDraw={seat:0,tile:s.players[0].hand.at(-1),flower:false};
   const tile=s.players[0].hand.find(id=>M.type(id)===5),tail=s.wall.at(-1),length=s.wall.length;
-  M.act(s,'m-special',{tile},0);assert.equal(M.units(s.players[0]),2);assert(!M.opened(s.players[0]));assert(s.players[0].hand.includes(tail));assert.equal(s.wall.length,length-1);assert(s.lastDraw.flower);assert(M.validate(s,4));
+  assert.throws(()=>M.act(s,'m-discard',{tile},0),/请选择合法/);
+  M.act(s,'m-special',{tile},0);assert.equal(M.units(s.players[0]),2);assert(M.opened(s.players[0]));assert(s.players[0].hand.includes(tail));assert.equal(s.wall.length,length-1);assert(s.lastDraw.flower);assert(M.validate(s,4));
   assert.throws(()=>M.act(s,'m-special',{tile,step:s.step-1},0),/已更新/);
+});
+
+test('concealed and added gang tiles cannot be discarded',()=>{
+  const s=fixture([[6,6,6,6,9,0,1,2,18,19,20]],[[{kind:'peng',types:[9,9,9],from:1}],[],[],[]]);
+  for(const id of s.players[0].hand.filter(id=>[6,9].includes(M.type(id)))) {
+    assert.throws(()=>M.act(s,'m-discard',{tile:id},0),/请选择合法/);
+  }
+  M.act(s,'m-gang',{tile:6,kind:'concealed'},0);
+  assert.equal(s.players[0].melds.at(-1).kind,'concealed');
+  assert(M.opened({melds:[s.players[0].melds.at(-1)],specials:[]}));
+  assert(M.validate(s,4));
+});
+
+test('an unopened discarder pays for the win and the board shows only round amounts',()=>{
+  const s=fixture([[9,0,1,2,6,7,8,18,19,20,16,16,21,22],undefined,[10,11,12,13,14,18,19,20,13,13],undefined],[[],[],[{kind:'peng',types:[23,23,23],from:0}],[]]);
+  const discard=s.players[0].hand.find(id=>M.type(id)===9);
+  s.totals=[9000,-9000,0,0];
+  M.act(s,'m-discard',{tile:discard},0);
+  const window=s.pending.id;
+  for(const offer of s.pending.offers.slice()) {
+    if(s.pending)M.act(s,offer.seat===2?'m-hu':'m-pass',{window},offer.seat);
+  }
+  assert.equal(s.roundResult.rows[0].opened,false);
+  assert.equal(s.roundResult.rows[0].reason,'点炮付款');
+  assert.deepEqual(plain(s.roundResult.delta),[-100,0,100,0]);
+  const html=M.render(s);
+  assert.equal((html.match(/class="mj-round-amount"/g)||[]).length,4);
+  assert.match(html,/未开口 · 0 杠<\/span><b class="mj-round-amount">0 元/);
+  assert.doesNotMatch(html,/class="mj-round-amount">[^<]*(89|90) 元/);
 });
 
 test('added gang can be robbed, is scored as flower, and never commits its fourth tile twice',()=>{

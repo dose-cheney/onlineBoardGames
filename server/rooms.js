@@ -477,7 +477,14 @@ class Hub {
     if (!g) return '';
     const playerName = i => C.playerBadge(i, { onlineSeats: view.seats, onlineEmotes: view.emotes }) + esc(names[i]);
     let rows = '';
-    if (type === 'mahjong') rows = g.players.map((p,i) => `<li>${playerName(i)} · ${C.Games.mahjong.opened(p) ? '已开口' : '未开口'} · ${p.hand.length} 张手牌 · 本场 ${C.Games.mahjong.money(g.totals[i])} 元</li>`).join('');
+    if (type === 'mahjong') {
+      const engine = C.Games.mahjong, result = g.roundPending || g.finished ? g.roundResult : null;
+      rows = g.players.map((p, i) => {
+        const opened = result?.rows.find(row => row.seat === i)?.opened ?? engine.opened(p);
+        const amount = result ? ` · 本局 ${result.delta[i] > 0 ? '+' : ''}${engine.money(result.delta[i])} 元` : '';
+        return `<li>${playerName(i)} · ${opened ? '已开口' : '未开口'} · ${engine.units(p)} 杠${amount}</li>`;
+      }).join('');
+    }
     else if (type === 'poker') rows = g.players.map((p, i) => `<li>${playerName(i)} · ${p.stack} 筹码${p.folded ? ' · 已弃牌或候场' : ''}</li>`).join('');
     else if (type === 'splendor') rows = g.players.map((p, i) => `<li>${playerName(i)} · ${C.Games.splendor.points(p)} 分 · ${p.gems.join('/')} 筹码</li>`).join('');
     else if (type === 'scout') rows = g.totals.map((score, i) => `<li>${playerName(i)} · ${score} 分 · ${g.hands[i].length} 张手牌</li>`).join('');
