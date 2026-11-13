@@ -9,6 +9,36 @@
   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function html(){const all=read();return all.length?'<details class="panel mj-result-cache" data-detail-id="mahjong-results"><summary>武穴麻将 · 本机保存的场次结果（'+all.length+'）</summary>'+all.map(r=>'<article><strong>'+esc(new Date(r.startedAt).toLocaleString('zh-CN'))+' · '+(r.final?'已结束':'截至第 '+r.ledger.length+' 局的快照')+'</strong><p>'+r.participants.map((name,i)=>esc(name)+' '+(r.totals[i]/100).toLocaleString('zh-CN')+'元').join(' · ')+'</p><button data-mj-export="'+esc(r.sessionId)+'">下载本场结果</button></article>').join('')+'</details>':'';}
   const desktop=window.matchMedia?.('(min-width: 901px)');
+  let observedBoard, riverObserver;
+  function sizeDiscards(board, zones){
+    // Fit the most crowded occupied river, then use that size for all four seats.
+    let width=29;
+    const gap=2, aspect=1.4;
+    for(const {zone,lines,length,sideways} of zones){
+      if(!lines||!length||!zone.clientWidth||!zone.clientHeight)continue;
+      const across=sideways?zone.clientHeight:zone.clientWidth;
+      const depth=sideways?zone.clientWidth:zone.clientHeight;
+      width=Math.min(width,(across-gap*(length-1))/length,(depth-gap*(lines-1))/(lines*aspect));
+    }
+    board.style.setProperty('--mj-discard-width',Math.max(0,Math.floor(width*10)/10)+'px');
+  }
+  function updateDiscardLayout(root){
+    const board=root.querySelector('.mj-board');
+    if(board===observedBoard)return;
+    riverObserver?.disconnect();
+    observedBoard=board;
+    if(!board)return;
+    const zones=Array.from(board.querySelectorAll('.mj-river-zone'),zone=>{
+      const {riverLines,riverLength}=zone.querySelector('.mj-river').dataset;
+      return {zone,lines:Number(riverLines),length:Number(riverLength),sideways:zone.matches('.mj-river-1,.mj-river-3')};
+    });
+    const update=()=>sizeDiscards(board,zones);
+    update();
+    if(window.ResizeObserver){
+      riverObserver=new window.ResizeObserver(update);
+      for(const {zone} of zones)riverObserver.observe(zone);
+    }
+  }
   function captureScroll(root){
     const visible=Array.from(root.querySelectorAll('[data-mj-scroll]')).filter(el=>el.clientHeight>0);
     return new Map(visible.map(el=>[
@@ -17,6 +47,7 @@
     ]));
   }
   function restoreTableView(root, details, scroll){
+    updateDiscardLayout(root);
     for(const el of root.querySelectorAll('[data-mj-desktop-open]')) {
       if(!details.has(el.dataset.detailId))el.open=!!desktop?.matches;
     }

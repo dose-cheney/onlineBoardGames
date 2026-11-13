@@ -397,7 +397,8 @@
         '" title="'+esc(seatName)+'第 '+(start+i+1)+' 张：'+names[type(d.id)]+(d.taken?'（已被取走）':'')+'">'+tile(d.id)+'</span>').join('')+'</div>');
     }
     return '<div class="mj-river-zone mj-river-'+relative+'" role="group" aria-label="'+esc(seatName)+'的出牌">'+
-      '<div class="mj-river" style="--river-lines:'+Math.max(1,lines.length)+'">'+lines.join('')+'</div></div>';
+      '<div class="mj-river" data-river-lines="'+lines.length+'" data-river-length="'+Math.min(lineLength,discards.length)+
+      '" style="--river-lines:'+Math.max(1,lines.length)+'">'+lines.join('')+'</div></div>';
   }
   function meldsHtml(player, tile, revealConcealed) {
     const meld=(tiles,caption)=>'<span class="mj-meld"><span class="mj-meld-tiles">'+tiles+

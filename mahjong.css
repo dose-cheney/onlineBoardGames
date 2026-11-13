@@ -79,7 +79,8 @@ body:has(.mj-board){min-height:100dvh;background:var(--paper)}
 .mj-river-3{justify-content:start;--river-angle:-90deg}
 .mj-river{
   display:flex;flex-direction:column;gap:2px;--river-max:29px;
-  --river-width:min(var(--river-max),calc((100cqw - 18px)/10),calc((100cqh - 2px * (var(--river-lines) - 1))/(1.4 * var(--river-lines))));
+  --river-width:var(--mj-discard-width,var(--river-fit));
+  --river-fit:min(var(--river-max),calc((100cqw - 18px)/10),calc((100cqh - 2px * (var(--river-lines) - 1))/(1.4 * var(--river-lines))));
   --river-height:calc(var(--river-width)*1.4);
 }
 .mj-river-0 .mj-river{flex-direction:column-reverse}
@@ -87,7 +88,7 @@ body:has(.mj-board){min-height:100dvh;background:var(--paper)}
 .mj-river-2 .mj-river-line{flex-direction:row-reverse}
 .mj-river-1 .mj-river,.mj-river-3 .mj-river{
   flex-direction:row;--river-max:27px;
-  --river-width:min(var(--river-max),calc((100cqw - 2px * (var(--river-lines) - 1))/(1.4 * var(--river-lines))),calc((100cqh - 8px)/5));
+  --river-fit:min(var(--river-max),calc((100cqw - 2px * (var(--river-lines) - 1))/(1.4 * var(--river-lines))),calc((100cqh - 8px)/5));
 }
 .mj-river-3 .mj-river{flex-direction:row-reverse}
 .mj-river-1 .mj-river-line,.mj-river-3 .mj-river-line{flex-direction:column}
