@@ -469,6 +469,7 @@
       const handDisplay=hand?'<div class="mj-hand mj-own-hand">'+hand+'</div>':winner!==i?
         coveredTiles(p.hand.length,'mj-covered','手牌'):'';
       const melds=winner===i?'':meldsHtml(p,tile,own||!!roundResult);
+      const meldSize=own?'<span class="mj-meld mj-meld-size" aria-hidden="true">'+tile(null)+'</span>':'';
       const rack=handDisplay||melds?'<div class="mj-rack">'+handDisplay+
         (melds?'<div class="mj-melds" role="group" aria-label="吃碰杠">'+melds+'</div>':'')+'</div>':'';
       const actions=own?'<section class="mj-controls" aria-label="本局操作">'+controls+
@@ -476,10 +477,10 @@
         (ui.error?'<p class="field-error" role="alert">'+esc(ui.error)+'</p>':'')+'</section>':'';
       return '<section class="mj-seat mj-seat-'+relative+(i===s.current?' current':'')+'">'+
         '<header><strong>'+C.playerBadge(i,ui)+esc(label(i))+'</strong><span>'+status+'</span>'+amount+'</header>'+
-        rack+(actions?'<div class="mj-seat-discard">'+actions+'</div>':'')+'</section>';
+        rack+meldSize+(actions?'<div class="mj-seat-discard">'+actions+'</div>':'')+'</section>';
     };
-    const indicators='<div class="mj-indicators"><div class="mj-special-tiles"><div>皮子'+tile(s.indicator)+'</div><div>宝'+tile(s.joker*4)+
-      '</div><div>可杠'+s.special.map(t=>tile(t*4)).join('')+'</div></div>'+
+    const indicators='<div class="mj-indicators"><div class="mj-special-tiles"><div><span>皮子</span>'+tile(s.indicator)+'</div><div><span>宝</span>'+tile(s.joker*4)+
+      '</div><div><span>可杠</span>'+s.special.map(t=>tile(t*4)).join('')+'</div></div>'+
       '<details class="mj-wall" data-detail-id="mahjong-wall"><summary>骰子 '+s.dice.join(' + ')+' · 翻皮与抓牌</summary>'+
       '<div class="mj-wall-info"><div>翻皮：'+esc(label(s.wallSeat))+'第 '+s.flipStack+' 垛</div>'+
       '<div>起抓：'+esc(label(s.startWall))+'第 '+s.startStack+' 垛（跳 '+s.skip+' 垛）</div></div></details></div>';

@@ -9,34 +9,108 @@
   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   function html(){const all=read();return all.length?'<details class="panel mj-result-cache" data-detail-id="mahjong-results"><summary>武穴麻将 · 本机保存的场次结果（'+all.length+'）</summary>'+all.map(r=>'<article><strong>'+esc(new Date(r.startedAt).toLocaleString('zh-CN'))+' · '+(r.final?'已结束':'截至第 '+r.ledger.length+' 局的快照')+'</strong><p>'+r.participants.map((name,i)=>esc(name)+' '+(r.totals[i]/100).toLocaleString('zh-CN')+'元').join(' · ')+'</p><button data-mj-export="'+esc(r.sessionId)+'">下载本场结果</button></article>').join('')+'</details>':'';}
   const desktop=window.matchMedia?.('(min-width: 901px)');
-  let observedBoard, riverObserver;
-  function sizeDiscards(board, zones){
-    // Fit the most crowded occupied river, then use that size for all four seats.
+  const desktopTable=window.matchMedia?.('(min-width: 761px)');
+  let observedBoard, tableObserver;
+  const riverGap=2, tileAspect=1.4;
+  function fitRiver(across,depth,length,lines){
+    return Math.min((across-riverGap*(length-1))/length,(depth-riverGap*(lines-1))/(lines*tileAspect));
+  }
+  function fitDesktopRiver(across,depth,count){
+    let width=0;
+    for(let length=1;length<=Math.min(count,10);length++){
+      width=Math.max(width,fitRiver(across,depth,length,Math.ceil(count/length)));
+    }
+    return width;
+  }
+  function fitMelds(rack,limit){
+    const groups=rack.querySelector('.mj-melds');
+    if(!groups)return limit;
+    const melds=Array.from(groups.children,meld=>{
+      const style=window.getComputedStyle(meld);
+      return {tiles:meld.querySelectorAll('.mj-tile').length,
+        trim:meld.offsetHeight-meld.querySelector('.mj-tile').offsetHeight,
+        padding:parseFloat(style.paddingLeft)+parseFloat(style.paddingRight)+2,
+        caption:meld.querySelector('small').offsetWidth};
+    });
+    const rowWidth=groups.getBoundingClientRect().width;
+    const style=window.getComputedStyle(groups);
+    const gapX=parseFloat(style.columnGap),gapY=parseFloat(style.rowGap);
+    const fits=width=>{
+      let used=0,row=0,height=0;
+      for(const {tiles,trim,padding,caption} of melds){
+        const groupWidth=Math.max(width*tiles+tiles-1,caption+.5)+padding;
+        if(groupWidth>rowWidth)return false;
+        if(used&&used+gapX+groupWidth>rowWidth){height+=row+gapY;used=0;row=0;}
+        used+=groupWidth+(used?gapX:0);
+        row=Math.max(row,width*tileAspect+trim);
+      }
+      return height+row<=rack.clientHeight-1;
+    };
+    if(fits(limit))return limit;
+    let min=0,max=limit;
+    for(let i=0;i<9;i++){
+      const width=(min+max)/2;
+      if(fits(width))min=width;
+      else max=width;
+    }
+    return min;
+  }
+  function sizeDiscards(board,zones,ownMeldSize,sideRacks,topRack){
+    const wide=desktopTable?.matches;
+    // A four-tile kong must fit beside the covered hand in either side seat.
     let width=29;
-    const gap=2, aspect=1.4;
-    for(const {zone,lines,length,sideways} of zones){
-      if(!lines||!length||!zone.clientWidth||!zone.clientHeight)continue;
+    if(wide&&ownMeldSize){
+      const ownMeld=ownMeldSize.getBoundingClientRect();
+      board.style.setProperty('--mj-own-meld-width',ownMeld.width+'px');
+      board.style.setProperty('--mj-own-meld-height',ownMeld.height+'px');
+      width=Math.min(36,ownMeld.width-2);
+    }
+    if(wide){
+      const backWidth=Math.min(13,window.innerHeight*.014);
+      width=Math.min(width,...sideRacks.map(rack=>(rack.clientWidth-backWidth-7-9)/4));
+      for(const rack of sideRacks)width=fitMelds(rack,Math.max(0,width));
+      if(topRack)width=fitMelds(topRack,Math.max(0,width));
+    }
+    const occupied=zones.flatMap(({zone,river,count,lines,length,sideways})=>{
+      if(!count||!zone.clientWidth||!zone.clientHeight)return [];
       const across=sideways?zone.clientHeight:zone.clientWidth;
       const depth=sideways?zone.clientWidth:zone.clientHeight;
-      width=Math.min(width,(across-gap*(length-1))/length,(depth-gap*(lines-1))/(lines*aspect));
+      width=Math.min(width,wide?fitDesktopRiver(across,depth,count):fitRiver(across,depth,length,lines));
+      return [{river,across,count}];
+    });
+    // Round down so CSS flex wrapping and the size calculation agree at the boundary.
+    width=Math.max(0,Math.floor(width*10)/10);
+    if(wide){
+      for(const {river,across,count} of occupied){
+        const length=Math.max(1,Math.min(10,count,Math.floor((across+riverGap)/(width+riverGap))));
+        river.style.setProperty('--river-length',length);
+      }
     }
-    board.style.setProperty('--mj-discard-width',Math.max(0,Math.floor(width*10)/10)+'px');
+    board.style.setProperty('--mj-discard-width',width+'px');
   }
   function updateDiscardLayout(root){
     const board=root.querySelector('.mj-board');
     if(board===observedBoard)return;
-    riverObserver?.disconnect();
+    tableObserver?.disconnect();
     observedBoard=board;
     if(!board)return;
     const zones=Array.from(board.querySelectorAll('.mj-river-zone'),zone=>{
-      const {riverLines,riverLength}=zone.querySelector('.mj-river').dataset;
-      return {zone,lines:Number(riverLines),length:Number(riverLength),sideways:zone.matches('.mj-river-1,.mj-river-3')};
+      const river=zone.querySelector('.mj-river');
+      const {riverLines,riverLength}=river.dataset;
+      return {zone,river,count:river.querySelectorAll('.mj-river-entry').length,lines:Number(riverLines),
+        length:Number(riverLength),sideways:zone.matches('.mj-river-1,.mj-river-3')};
     });
-    const update=()=>sizeDiscards(board,zones);
+    const ownMeldSize=board.querySelector('.mj-meld-size .mj-tile');
+    const sideRacks=Array.from(board.querySelectorAll('.mj-seat-1 .mj-rack,.mj-seat-3 .mj-rack'));
+    const topRack=board.querySelector('.mj-seat-2 .mj-rack');
+    const update=()=>sizeDiscards(board,zones,ownMeldSize,sideRacks,topRack);
     update();
     if(window.ResizeObserver){
-      riverObserver=new window.ResizeObserver(update);
-      for(const {zone} of zones)riverObserver.observe(zone);
+      tableObserver=new window.ResizeObserver(update);
+      for(const {zone} of zones)tableObserver.observe(zone);
+      if(ownMeldSize)tableObserver.observe(ownMeldSize);
+      for(const rack of sideRacks)tableObserver.observe(rack);
+      if(topRack)tableObserver.observe(topRack);
     }
   }
   function captureScroll(root){
