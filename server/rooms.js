@@ -14,7 +14,7 @@ function settings(input) {
   const seats = int(input.seats, 2, C.limits[type][1]);
   const difficulty = ['easy', 'medium', 'hard'].includes(input.difficulty) ? input.difficulty : null;
   if (!seats || !difficulty) bad('人数或难度无效');
-  const out = { type, seats, difficulty };
+  const out = { type, seats, difficulty:C.difficultyFor(type,difficulty) };
   if (type === 'mahjong') {
     if (seats !== 4) bad('武穴麻将固定四个座位');
     out.prices = C.Games.mahjong.prices(input.prices);

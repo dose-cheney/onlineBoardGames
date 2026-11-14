@@ -3,6 +3,7 @@
   const Games=window.Games=window.Games||{};
   const names={splendor:'璀璨宝石',scout:'马戏星探',poker:'德州扑克',athlete:'胡闹运动会',flip7:'Flip 7',mahjong:'武穴麻将'};
   const limits={splendor:[2,4],scout:[2,5],poker:[2,10],athlete:[2,6],flip7:[3,6],mahjong:[4,4]};
+  const difficultyFor=(type,difficulty)=>type==='mahjong'&&difficulty==='medium'?'easy':difficulty;
   const legacyTypes=['splendor','scout','poker'];
   const emptyStats=()=>({started:0,completed:0,wins:0,activeMs:0,rankSum:0});
   const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -38,5 +39,5 @@
   }
   function ranks(values,secondary){return values.map((v,i)=>1+values.reduce((n,o,j)=>n+(j!==i&&(o>v||(o===v&&secondary&&secondary[j]<secondary[i]))?1:0),0))}
   function gainAchievement(p,id){if(!p.achievements.includes(id))p.achievements.push(id)}
-  window.GameCore={version:'1.3.0',Games,names,limits,escape,shuffle,clamp,sum,fmtTime,formatMoney,playerBadge,createProfile,attachSlots,validProfile,ranks,gainAchievement};
+  window.GameCore={version:'1.3.0',Games,names,limits,difficultyFor,escape,shuffle,clamp,sum,fmtTime,formatMoney,playerBadge,createProfile,attachSlots,validProfile,ranks,gainAchievement};
 })();

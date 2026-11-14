@@ -11,7 +11,7 @@ function harness(saved,speech){
     FileReader:class{readAsText(file){this.result=file.text;this.onload()}},confirm(message){confirmations.push(message);return accept},addEventListener(){}};
   if(speech)Object.assign(context,{speechSynthesis:speech,SpeechSynthesisUtterance:class {constructor(text){this.text=text}}});
   context.window=context;vm.createContext(context);
-  for(const file of ['core','achievements','splendor','scout','poker','athlete-data','athlete','flip7','mahjong','save-files','mahjong-voice','app'])vm.runInContext(fs.readFileSync(__dirname+'/../js/'+file+'.js','utf8'),context,{filename:file+'.js'});
+  for(const file of ['core','achievements','splendor','scout','poker','athlete-data','athlete','flip7','mahjong','mahjong-ai','save-files','mahjong-voice','app'])vm.runInContext(fs.readFileSync(__dirname+'/../js/'+file+'.js','utf8'),context,{filename:file+'.js'});
   return {C:context.GameCore,click(action,data={}){events.click({target:{closest(){return {dataset:{action,...data}}}}})},field(id,value){elements[id]={value:String(value)}},get(){return JSON.parse(raw)},html(){return elements.app.innerHTML},accept(v){accept=v},confirmations,downloads,
     save(game){this.click('app-save',game?{game}:{});this.click('app-save-copy')},import(data,game){this.click('app-load',game?{game}:{});events['file-change']({target:{files:[{text:JSON.stringify(data)}]}})},tick(ms){clock+=ms;events.tick()},hide(){context.document.hidden=true;events.visibilitychange()},delays(){return [...delays.values()]},run(delay){const id=[...delays].find(([id,d])=>d===delay)?.[0];if(id===undefined)return false;const fn=timers.get(id);timers.delete(id);delays.delete(id);clock+=delay;fn();return true}};
 }
@@ -330,6 +330,20 @@ console.log('New player setup checks passed: failed starts preserve editable set
   assert(h.html().includes('achievement-section">锦标赛'));assert(h.html().includes('现金桌与通用'));assert(h.html().includes('满桌称王'));
   h.save();const backup=JSON.parse(h.downloads.at(-1).data);const restored=harness(backup);
   assert.deepEqual(restored.get().achievements,backup.achievements,'new tournament achievements survive JSON and repeated historical checks');
+}
+
+{
+  const h=harness(C.createProfile());
+  h.click('app-select',{game:'mahjong'});
+  const difficulty=h.html().match(/<select id="difficulty">(.*?)<\/select>/)[1];
+  assert.deepEqual([...difficulty.matchAll(/value="(\w+)"/g)].map(match=>match[1]),['easy','hard']);
+  h.field('players',4);h.field('difficulty','hard');h.click('app-start');
+  assert.equal(h.get().games.mahjong.difficulty,'hard');
+  h.save('mahjong');
+  const oldSave=JSON.parse(h.downloads.at(-1).data);
+  oldSave.session.difficulty='medium';
+  h.import(oldSave,'mahjong');
+  assert.equal(h.get().games.mahjong.difficulty,'easy');
 }
 
 {

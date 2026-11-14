@@ -3,10 +3,10 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const C=require('../server/engines'),M=C.Games.mahjong,{Hub,settings}=require('../server/rooms');
 const plain=x=>JSON.parse(JSON.stringify(x));
 
-function fixture(hands, melds = [[],[],[],[]], current=0) {
+function fixture(hands, melds = [[],[],[],[]], current=0, indicator=4) {
   const s=M.create(4),pool=Array.from({length:136},(_,i)=>i);
   const take=t=>{const index=pool.findIndex(id=>M.type(id)===t);assert(index>=0,'too many copies of tile '+t);return pool.splice(index,1)[0];};
-  s.indicator=take(4);Object.assign(s,M.specialTiles(4));s.discards=[];s.pending=null;s.roundPending=false;s.roundResult=null;s.lastDraw=null;s.current=current;
+  s.indicator=take(indicator);Object.assign(s,M.specialTiles(indicator));s.discards=[];s.pending=null;s.roundPending=false;s.roundResult=null;s.lastDraw=null;s.current=current;
   s.players=Array.from({length:4},(_,i)=>({hand:(hands[i]||[]).map(take),melds:(melds[i]||[]).map(m=>({...m,ids:m.types.map(take)})),specials:[]}));
   for(let i=0;i<4;i++)if(hands[i]===undefined)s.players[i].hand=pool.splice(0,13);
   s.wall=pool;return s;
@@ -39,6 +39,67 @@ test('special tiles use the agreed red/north/green exceptions',()=>{
   assert.deepEqual(plain(M.specialTiles(32)),{special:[31,32],joker:33});
   assert.deepEqual(plain(M.specialTiles(8)),{special:[31,8],joker:0});
   assert.deepEqual(plain(M.specialTiles(33)),{special:[31,33],joker:27});
+});
+
+test('advanced Mahjong keeps a seven-pairs route closed when a beginner would pong',()=>{
+  const s=fixture([[0,0,1,1,2,2,9,9,10,10,11,12,27],[0],[],[]],undefined,1,6);
+  M.act(s,'m-discard',{tile:s.players[1].hand[0]},1);
+  assert(s.pending.offers.find(o=>o.seat===0).options.some(o=>o.action==='m-peng'));
+  const beginner=plain(s);
+  M.bot(beginner,'easy',0);
+  M.bot(s,'hard',0);
+  assert.equal(beginner.players[0].melds[0].kind,'peng');
+  assert.equal(M.opened(s.players[0]),false);
+});
+
+test('advanced Mahjong chi opens when it gives the hand a legal wait',()=>{
+  const s=fixture([[0,1,9,10,11,12,13,18,19,20,22,22,27],[2],[],[]],undefined,1,6);
+  M.act(s,'m-discard',{tile:s.players[1].hand[0]},1);
+  const beginner=plain(s);
+  M.bot(beginner,'easy',0);
+  M.bot(s,'hard',0);
+  assert.equal(M.opened(beginner.players[0]),false);
+  assert.equal(s.players[0].melds[0].kind,'chi');
+  M.bot(s,'hard',0);
+  assert.equal(M.type(s.discards.at(-1).id),27);
+});
+
+test('advanced Mahjong keeps a useful joker and kongs it when the replacement has good waits',()=>{
+  const common=[0,1,2,9,10,11,18,19,20,13,13,12,7];
+  const keep=fixture([[...common,27],undefined,undefined,undefined],undefined,0,6);
+  const kong=fixture([[...common,14],[],[],[]],undefined,0,6);
+  const hidden=plain(keep);
+  // Swap hidden tiles while preserving the number left in the wall.
+  [hidden.players[1].hand[0],hidden.wall[0]]=[hidden.wall[0],hidden.players[1].hand[0]];
+  hidden.wall.reverse();
+  M.bot(keep,'hard');
+  M.bot(hidden,'hard');
+  M.bot(kong,'hard');
+  assert.equal(M.type(keep.discards[0].id),27);
+  assert.equal(hidden.discards[0].id,keep.discards[0].id);
+  assert.equal(M.units(kong.players[0]),2);
+});
+
+test('old medium Mahjong rooms resolve to beginner without changing other games',()=>{
+  assert.equal(settings({type:'mahjong',seats:4,difficulty:'medium'}).difficulty,'easy');
+  assert.equal(settings({type:'mahjong',seats:4,difficulty:'hard'}).difficulty,'hard');
+  assert.equal(settings({type:'splendor',seats:4,difficulty:'medium'}).difficulty,'medium');
+});
+
+test('advanced Mahjong changes its late defensive discard with the public river',()=>{
+  const types=[0,1,3,5,8,9,12,15,17,19,22,24,27,28];
+  const play=honor=>{
+    const melds=[[],[{kind:'peng',types:[14,14,14]},{kind:'chi',types:[9,10,11]}],[],[]];
+    const s=fixture([types,[],[],[]],melds,0,6);
+    const take=t=>s.wall.splice(s.wall.findIndex(id=>M.type(id)===t),1)[0];
+    s.players[1].specials=[{id:take(31),units:1},{id:take(7),units:2}];
+    s.discards=[honor,honor,honor,1,4,5,18,20].map(t=>({id:take(t),seat:1,taken:false}));
+    s.wall.length=15;
+    M.bot(s,'hard');
+    return M.type(s.discards.at(-1).id);
+  };
+  assert.equal(play(27),27);
+  assert.equal(play(28),28);
 });
 
 test('clear/turbid, 258 pair, closed self only, and big multi-joker hands',()=>{

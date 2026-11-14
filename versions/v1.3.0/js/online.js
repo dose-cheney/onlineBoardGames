@@ -71,7 +71,7 @@
     return `<section class="panel"><h2>创建房间</h2><p class="muted">先创建房间，再邀请朋友。至少两名真人准备好后，房主即可开局。</p><form id="create-form" data-draft-key="create:${type}">
       <label class="online-field">游戏<select name="type" id="create-game">${Object.keys(names).map(k => option(k, names[k], k === type)).join('')}</select></label>
       <label class="online-field">座位上限<input name="seats" type="number" min="${min}" max="${max}" value="${type === 'poker' ? 10 : Math.min(max, 4)}" required></label>
-      ${type !== 'poker' ? `<label class="online-field">电脑难度<select name="difficulty">${option('easy', '初级 · 初次玩', true)}${option('medium', '中级')}${option('hard', '高级')}</select></label>` : '<input type="hidden" name="difficulty" value="medium">'}
+      ${type !== 'poker' ? `<label class="online-field">电脑难度<select name="difficulty">${option('easy', '初级 · 初次玩', true)}${type === 'mahjong' ? '' : option('medium', '中级')}${option('hard', '高级')}</select></label>` : '<input type="hidden" name="difficulty" value="medium">'}
       ${type !== 'poker' ? `<label class="online-field"><span><input name="bots" type="checkbox" checked> 人数不足时由电脑补位</span></label>` : ''}
       ${type === 'athlete' ? `<label class="online-field">选角<select name="draftMode">${option('draft', '蛇形选角', true)}${option('random', '随机组队')}</select></label><label class="online-field">赛道<select name="trackMode">${option('alternating', '温和／狂野交替', true)}${option('mild', '全程温和')}</select></label>` : ''}
       ${type === 'mahjong' ? '<div class="mj-price-fields">'+Object.entries({1:'1斤',2:'2斤',4:'4斤',8:'8斤',16:'16斤封顶',silver:'银顶／家',gold:'金顶／家'}).map(([key,text])=>'<label>'+text+'（元）<input name="mj-price-'+key+'" type="number" min="0.01" max="1000000" step="0.01" value="'+({1:1,2:1,4:2,8:4,16:8,silver:10,gold:15})[key]+'" required></label>').join('')+'</div><label>操作时限（秒）<input name="turnSeconds" type="number" min="15" max="300" value="120" required></label><p>麻将固定四座；不启用电脑时，需要四人准备。金额在本场固定，人员更换前结算。</p>' : ''}
@@ -172,6 +172,9 @@
     for (const form of app.querySelectorAll('form')) {
       form.noValidate = true;
       const draft = form.dataset.draftKey ? { ...(form.getAttribute('id') === 'create-form' ? sharedCreate : {}), ...drafts.get(form.dataset.draftKey) } : null;
+      if (form.dataset.draftKey === 'create:mahjong' && draft?.difficulty?.value === 'medium') {
+        draft.difficulty = { ...draft.difficulty, value: 'easy' };
+      }
       forms.restore(form, draft);
       for (const field of form.elements) if (draft?.[field.name]?.invalid) showFieldError(field);
     }

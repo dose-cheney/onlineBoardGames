@@ -25,7 +25,7 @@ async function run(){
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
   const port=server.address().port,base=`http://127.0.0.1:${port}`,clients=[];
   try{
-    for(const path of ['/mahjong.css','/js/mahjong.js','/js/mahjong-results.js'])assert.equal((await fetch(base+path)).status,200);
+    for(const path of ['/mahjong.css','/js/mahjong.js','/js/mahjong-ai.js','/js/mahjong-results.js'])assert.equal((await fetch(base+path)).status,200);
     for(let i=0;i<4;i++)clients.push(await client(base,port,'网络麻友'+i));
     const host=clients[0];host.send({kind:'create',type:'mahjong',seats:4,bots:false,difficulty:'medium'});await until(()=>host.state());const code=host.state().room.id;
     for(const c of clients.slice(1)){c.send({kind:'join',id:code});await until(()=>c.state());}

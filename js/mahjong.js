@@ -219,6 +219,13 @@
     for(const t of ts){const at=p.hand.findIndex(id=>type(id)===t);if(at<0)throw Error('手牌不满足操作条件');ids.push(...p.hand.splice(at,1));}
     return ids;
   }
+  function claimMeld(p, pending, pick) {
+    const t=type(pending.tile);
+    const ts=pick.action==='m-chi'?[pick.start,pick.start+1,pick.start+2].filter(v=>v!==t):Array(pick.action==='m-peng'?2:3).fill(t);
+    const ids=removeTypes(p,ts).concat(pending.tile);
+    if(pick.action==='m-chi')ids.sort((a,b)=>a-b);
+    p.melds.push({kind:pick.action==='m-chi'?'chi':pick.action==='m-peng'?'peng':'exposed',ids,from:pending.from});
+  }
   function commitAdded(s, seat, id) {
     const p=s.players[seat],m=p.melds.find(m=>m.kind==='peng'&&type(m.ids[0])===type(id));
     p.hand.splice(p.hand.indexOf(id),1);m.ids.push(id);m.kind='added';s.pending=null;draw(s,seat,true);
@@ -236,10 +243,7 @@
       p.hand.push(pending.tile);sort(p);finishRound(s,pick.seat,info,pending.from);return;
     }
     s.discards.at(-1).taken=true;
-    const ts=pick.action==='m-chi'?[pick.start,pick.start+1,pick.start+2].filter(v=>v!==t):Array(pick.action==='m-peng'?2:3).fill(t);
-    const ids=removeTypes(p,ts).concat(pending.tile);
-    if(pick.action==='m-chi')ids.sort((a,b)=>a-b);
-    p.melds.push({kind:pick.action==='m-chi'?'chi':pick.action==='m-peng'?'peng':'exposed',ids,from:pending.from});
+    claimMeld(p,pending,pick);
     s.pending=null;s.lastDraw=null;s.current=pick.seat;s.step++;
     log(s,label(pick.seat)+(pick.action==='m-chi'?'吃':pick.action==='m-peng'?'碰':'明杠')+names[t]+'。');
     announce(s,({ 'm-chi':'吃', 'm-peng':'碰', 'm-claim-gang':'明杠' })[pick.action]+names[t]);
@@ -296,7 +300,7 @@
     announce(s,names[type(choice.tile)]);
     openResponses(s,choice.tile,actor,'discard');
   }
-  function efficiency(s, seat, discard, difficulty) {
+  function beginnerScore(s, seat, discard) {
     const p=s.players[seat], counts=Array(34).fill(0);
     p.hand.filter(id=>id!==discard).forEach(id=>counts[type(id)]++);
     let value=0;
@@ -307,26 +311,42 @@
       if(t<27)for(const offset of [1,2])if(t%9+offset<9)value+=Math.min(n,counts[t+offset])*(offset===1?1.6:.7);
       if(t<27&&[1,4,7].includes(t%9)&&n>=2)value+=1;
     }
-    if(difficulty==='hard') {
-      const publicCount=s.discards.filter(d=>!d.taken&&type(d.id)===type(discard)).length;
-      value+=publicCount*.7;
-    }
-    return value;
+    return value+(type(discard)>=27?.1:0);
   }
-  function bot(s,difficulty='medium',forcedSeat=null) {
+  function projectBotAction(s, seat, choice) {
+    const p=s.players[seat];
+    const copy={hand:p.hand.slice(),melds:p.melds.slice(),specials:p.specials.slice()};
+    if(s.pending)claimMeld(copy,s.pending,choice);
+    else if(choice.action==='m-gang'&&choice.kind==='concealed') {
+      copy.melds.push({kind:'concealed',ids:removeTypes(copy,Array(4).fill(choice.tile))});
+    } else if(choice.action==='m-gang') {
+      const index=copy.melds.findIndex(m=>m.kind==='peng'&&type(m.ids[0])===choice.tile);
+      const meld=copy.melds[index];
+      copy.melds[index]={...meld,kind:'added',ids:meld.ids.concat(removeTypes(copy,[choice.tile]))};
+    } else {
+      copy.hand.splice(copy.hand.indexOf(choice.tile),1);
+      copy.specials.push({id:choice.tile,units:type(choice.tile)===s.joker?2:1});
+    }
+    return copy;
+  }
+  function bot(s,difficulty='easy',forcedSeat=null) {
     if(s.finished||s.roundPending)return;
     const seat=forcedSeat??s.current;
     if(!canAct(s,seat))return;
+    const options=s.pending?s.pending.offers.find(o=>o.seat===seat).options:ownOptions(s,seat);
+    const win=options.find(o=>o.action==='m-hu');
+    let choice=win;
+    if(!choice&&difficulty==='hard') {
+      choice=C.Games.mahjong.advancedChoice?.(s,seat,options,pick=>projectBotAction(s,seat,pick));
+    }
     if(s.pending) {
-      const offer=s.pending.offers.find(o=>o.seat===seat),hu=offer.options.find(o=>o.action==='m-hu');
-      const choice=hu||offer.options.find(o=>o.action==='m-claim-gang')||offer.options.find(o=>o.action==='m-peng')||(difficulty==='easy'?null:offer.options.find(o=>o.action==='m-chi'))||{action:'m-pass'};
+      choice=choice||options.find(o=>o.action==='m-claim-gang')||options.find(o=>o.action==='m-peng')||{action:'m-pass'};
       act(s,choice.action,{...choice,window:s.pending.id},seat);return;
     }
-    const options=ownOptions(s,seat),win=options.find(o=>o.action==='m-hu'),special=options.find(o=>o.action==='m-special'&&type(o.tile)!==s.joker),gang=options.find(o=>o.action==='m-gang');
-    let choice=win||special||gang;
+    if(!choice)choice=options.find(o=>o.action==='m-special'&&type(o.tile)!==s.joker)||options.find(o=>o.action==='m-gang');
     if(!choice) {
       const discards=options.filter(o=>o.action==='m-discard');
-      discards.sort((a,b)=>efficiency(s,seat,b.tile,difficulty)-efficiency(s,seat,a.tile,difficulty));
+      discards.sort((a,b)=>beginnerScore(s,seat,b.tile)-beginnerScore(s,seat,a.tile));
       choice=discards[0]||options[0];
     }
     act(s,choice.action,choice,seat);
