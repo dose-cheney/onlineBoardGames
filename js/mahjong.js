@@ -486,10 +486,11 @@
       const winningTiles=player.hand.map(id=>tile(id,{winning:id===winningTile})).join('');
       const melds=meldsHtml(player,tile,true);
       winningHand='<section class="mj-winning-hand" aria-label="赢家牌面"><strong>'+esc(label(winner))+' · '+
-        (info.clean?'清水':'浑水')+esc(info.name)+'</strong><div class="mj-winning-rack"><div class="mj-winning-tiles">'+winningTiles+'</div>'+
+        (info.clean?'清水':'浑水')+esc(info.name)+'</strong><div class="mj-winning-rack"><div class="mj-winning-tiles" style="--winning-count:'+player.hand.length+'">'+winningTiles+'</div>'+
         (melds?'<div class="mj-melds" aria-label="赢家吃碰杠">'+melds+'</div>':'')+'</div></section>';
     }
-    const rivers='<div class="mj-center" aria-label="各家出牌">'+river(2)+river(1)+river(3)+winningHand+river(0)+'</div>';
+    const center=winningHand?'<div class="mj-center">'+winningHand+'</div>':
+      '<div class="mj-center" aria-label="各家出牌">'+river(2)+river(1)+river(3)+river(0)+'</div>';
     const logKey='mahjong-log-'+esc(s.sessionId);
     const actionLog='<aside class="mj-sidebar mj-action-log" aria-label="行牌记录"><details class="mj-sidebar-inner"'+
       ' data-mj-desktop-open data-detail-id="'+logKey+'"><summary>行牌记录</summary>'+
@@ -498,7 +499,7 @@
     const wall=coveredTiles(s.wall.length,'mj-wall-tiles','牌墙余牌');
     return '<section class="mj-game"><div class="mj-board'+(roundResult?' is-settled':'')+(winningHand?' has-winner':'')+'"><div class="mj-round"><strong>第 '+s.round+
       ' 局</strong><span>'+(wall?'牌墙':'牌墙已空')+'</span>'+wall+'</div>'+indicators+[2,1,3].map(r=>seatHtml((viewer+r)%4)).join('')+
-      rivers+seatHtml(viewer)+'</div>'+resultsHtml(s)+actionLog+'</section>';
+      center+seatHtml(viewer)+'</div>'+resultsHtml(s)+actionLog+'</section>';
   }
   C.Games.mahjong={create,act,bot,validate,restore,render,canAct,ownOptions,analyse,calculate,summary,tileHtml,names,type,specialTiles,opened,units,defaultPrices,prices,money,voiceEvents};
 })();
