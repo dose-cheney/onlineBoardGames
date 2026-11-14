@@ -81,6 +81,23 @@ test('price tiers, no dealer bonus, unopened exemptions, seven/closed exceptions
   assert.throws(()=>M.prices({1:0}),/金额/);assert.throws(()=>M.prices({gold:500}),/金额/);
 });
 
+test('all three opponents pay for an opened self draw or kong replacement win',()=>{
+  for(const [flower,meld,jin,cents,reason] of [
+    [false,peng,2,100,'自摸：三家付款'],
+    [true,{kind:'exposed',types:[6,6,6,6],from:1},8,400,'杠上开花：三家付款']
+  ]) {
+    const s=fixture([openSmall],[[meld],[],[],[]]);
+    s.lastDraw={seat:0,tile:s.players[0].hand.at(-1),flower};
+    assert(M.opened(s.players[0]));
+    M.act(s,'m-hu',{},0);
+    const {info,rows,delta}=s.roundResult;
+    assert.equal(info.source,flower?'flower':'self');
+    assert(rows.slice(1).every(row=>!row.opened&&row.eligible&&row.jin===jin&&row.cents===cents&&row.reason===reason));
+    assert.deepEqual(plain(delta),[cents*3,-cents,-cents,-cents]);
+    assert(M.validate(s,4));
+  }
+});
+
 test('simultaneous discard responses wait, win beats peng, and duplicates are rejected',()=>{
   const a=fixture([[9,0,1,2,6,7,8,18,19,20,13,13,21,22],[9,9,0,3,6,10,14,17,18,22,25,27,29],[9,10,11,12,13,14,18,19,20,23,23,23,13],[10,11,0,3,6,12,15,18,21,24,27,28,29]]);
   const tile=a.players[0].hand.find(id=>M.type(id)===9);M.act(a,'m-discard',{tile},0);assert(a.pending);

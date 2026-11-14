@@ -114,13 +114,16 @@
     return results[0]||null;
   }
   function calculate(s, winner, info, from = null) {
-    const payAll=!opened(s.players[winner])||info.seven;
+    const payAllReason=info.self
+      ? (info.flower?'杠上开花：三家付款':'自摸：三家付款')
+      : !opened(s.players[winner])||info.seven ? '门面清／七对：三家付款' : '';
     const rows=s.players.map((p,i)=>{
       const dealtIn=i===from&&info.source==='discard';
-      const eligible=i!==winner&&(payAll||opened(p)||dealtIn), gang=units(s.players[winner])+units(p);
+      const hasOpened=opened(p);
+      const eligible=i!==winner&&(!!payAllReason||hasOpened||dealtIn), gang=units(s.players[winner])+units(p);
       const jin=eligible?Math.min(16,info.base*(info.clean?2:1)*2**Math.min(gang+(info.flower?1:0),8)):0;
-      const reason=i===winner?'胡牌方':dealtIn?'点炮付款':payAll?'门面清／七对：三家付款':opened(p)?'已开口':'未开口免付';
-      return {seat:i,eligible,opened:opened(p),units:gang,jin,cents:jin?s.prices[jin]:0,reason};
+      const reason=i===winner?'胡牌方':dealtIn?'点炮付款':payAllReason||(hasOpened?'已开口':'未开口免付');
+      return {seat:i,eligible,opened:hasOpened,units:gang,jin,cents:jin?s.prices[jin]:0,reason};
     });
     const full=rows.filter(r=>r.jin===16),top=full.length===3?'金顶':full.length===2?'银顶':'普通';
     if(full.length>=2)full.forEach(r=>r.cents=s.prices[full.length===3?'gold':'silver']);
