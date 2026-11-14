@@ -10,6 +10,7 @@
   function html(){const all=read();return all.length?'<details class="panel mj-result-cache" data-detail-id="mahjong-results"><summary>武穴麻将 · 本机保存的场次结果（'+all.length+'）</summary>'+all.map(r=>'<article><strong>'+esc(new Date(r.startedAt).toLocaleString('zh-CN'))+' · '+(r.final?'已结束':'截至第 '+r.ledger.length+' 局的快照')+'</strong><p>'+r.participants.map((name,i)=>esc(name)+' '+(r.totals[i]/100).toLocaleString('zh-CN')+'元').join(' · ')+'</p><button data-mj-export="'+esc(r.sessionId)+'">下载本场结果</button></article>').join('')+'</details>':'';}
   const desktop=window.matchMedia?.('(min-width: 901px)');
   const desktopTable=window.matchMedia?.('(min-width: 761px)');
+  const celebrations=new Map();
   let observedBoard, tableObserver;
   const riverGap=2, tileAspect=1.4;
   function fitRiver(across,depth,length,lines){
@@ -122,6 +123,21 @@
   }
   function restoreTableView(root, details, scroll){
     updateDiscardLayout(root);
+    const panel=root.querySelector('[data-mj-celebration]');
+    if(panel&&!panel.classList.contains('is-celebrating')){
+      const id=panel.dataset.mjCelebration;
+      const now=Date.now();
+      if(!celebrations.has(id)){
+        if(celebrations.size>=64)celebrations.delete(celebrations.keys().next().value);
+        celebrations.set(id,now);
+      }
+      // UI redraws during voice playback or room updates should resume the same effect.
+      const elapsed=now-celebrations.get(id);
+      if(elapsed<1500){
+        panel.style.setProperty('--mj-celebration-elapsed',elapsed+'ms');
+        panel.classList.add('is-celebrating');
+      }
+    }
     for(const el of root.querySelectorAll('[data-mj-desktop-open]')) {
       if(!details.has(el.dataset.detailId))el.open=!!desktop?.matches;
     }

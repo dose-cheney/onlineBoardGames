@@ -123,6 +123,26 @@ test('all 2, 5 and 8 tiles win as 将一色 without four groups and a pair',()=>
   assert(M.validate(s,4));
 });
 
+test('central Mahjong settlement shows the actual gold or silver tier with fireworks',()=>{
+  for(const [capped,tier,label] of [[2,'silver','银顶'],[3,'gold','金顶']]){
+    const s=fixture([small]);
+    for(let seat=1;seat<=capped;seat++) {
+      for(const [t,units] of [[s.joker,2],[31,1]]) {
+        const id=s.wall.splice(s.wall.findIndex(tile=>M.type(tile)===t),1)[0];
+        s.players[seat].specials.push({id,units});
+      }
+    }
+    s.lastDraw={seat:0,tile:s.players[0].hand.at(-1),flower:false};
+    M.act(s,'m-hu',{},0);
+    assert.equal(s.roundResult.top,label);
+    const panel=M.render(s).match(/<section class="mj-winning-hand[^>]*>[\s\S]*?<\/section>/)[0];
+    assert(panel.includes('is-'+tier));
+    assert(panel.includes('清水门面清<span class="mj-winning-tier">'+label));
+    assert(panel.includes('mj-fireworks'));
+    assert(panel.includes('is-winning'));
+  }
+});
+
 test('price tiers, no dealer bonus, unopened exemptions, seven/closed exceptions and silver/gold',()=>{
   let s=fixture([small]);const base={base:1,clean:false,seven:false,flower:false};
   s.players[0].melds=[{kind:'peng',ids:[24,25,26],from:1}];

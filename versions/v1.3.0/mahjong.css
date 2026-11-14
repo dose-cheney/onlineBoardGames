@@ -119,7 +119,59 @@ body:has(.mj-board){min-height:100dvh;background:var(--paper)}
   width:min(100%,780px);min-width:0;padding:10px;border:1px solid #9d8958;border-radius:9px;background:#102f28;
 }
 .mj-winning-hand>strong{font-size:15px;color:#ffe6a1;text-align:center;overflow-wrap:anywhere}
+.mj-winning-hand:is(.is-gold,.is-silver){
+  position:relative;isolation:isolate;
+  border-color:var(--mj-tier-edge);
+  background:radial-gradient(ellipse at top,var(--mj-tier-glow),transparent 72%),var(--mj-tier-bg);
+  box-shadow:inset 0 0 0 3px var(--mj-tier-inset),0 6px 20px #071f1760;
+}
+.mj-winning-hand.is-gold{
+  --mj-tier-edge:#e4b74f;--mj-tier-glow:#63441b;--mj-tier-bg:#241e16;
+  --mj-tier-inset:#e4b74f34;--mj-tier-text:#ffe4a4;--mj-tier-light:#fff2b0;--mj-tier-spark:#ffa64a;
+}
+.mj-winning-hand.is-silver{
+  --mj-tier-edge:#b7ccdf;--mj-tier-glow:#385168;--mj-tier-bg:#182833;
+  --mj-tier-inset:#bed9ec34;--mj-tier-text:#edf8ff;--mj-tier-light:#eff8ff;--mj-tier-spark:#8fccff;
+}
+.mj-winning-hand:is(.is-gold,.is-silver) .is-winning{outline-color:var(--mj-tier-edge)}
+.mj-winning-hand:is(.is-gold,.is-silver)>strong{
+  position:relative;display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:3px 8px;
+  color:var(--mj-tier-text);max-width:100%;
+}
+.mj-winning-tier{
+  padding:1px 9px;border:1px solid var(--mj-tier-edge);border-radius:5px;
+  background:linear-gradient(150deg,var(--mj-tier-light),var(--mj-tier-edge));
+  color:#20242a;font-size:16px;font-weight:800;letter-spacing:.08em;white-space:nowrap;
+}
+.mj-fireworks{
+  display:none;position:absolute;z-index:-1;inset:0;overflow:hidden;
+  border-radius:inherit;pointer-events:none;
+}
+.mj-fireworks i{
+  position:absolute;top:30%;left:13%;width:4px;height:4px;border-radius:50%;
+  color:var(--mj-tier-light);background:currentColor;
+  box-shadow:0 -34px currentColor,16px -21px var(--mj-tier-spark),30px -12px currentColor,31px 8px var(--mj-tier-spark),
+    20px 23px currentColor,7px 34px var(--mj-tier-spark),-10px 25px currentColor,-25px 18px var(--mj-tier-spark),
+    -33px -3px currentColor,-22px -20px var(--mj-tier-spark),-10px -29px currentColor;
+  opacity:0;
+}
+.mj-fireworks i:nth-child(2){left:86%;top:48%;--mj-burst-delay:180ms}
+.mj-fireworks i:nth-child(3){left:70%;top:27%;--mj-burst-delay:390ms}
+.mj-winning-hand.is-silver .mj-fireworks i:nth-child(3){display:none}
+@media (prefers-reduced-motion:no-preference){
+  .mj-winning-hand.is-celebrating .mj-fireworks{display:block}
+  .mj-winning-hand.is-celebrating .mj-fireworks i{
+    animation:mj-firework-burst 1050ms ease-out both;
+    animation-delay:calc(var(--mj-burst-delay,0ms) - var(--mj-celebration-elapsed,0ms));
+  }
+}
+@keyframes mj-firework-burst{
+  0%{transform:scale(.12);opacity:0}
+  18%{opacity:.9}
+  100%{transform:translateY(12px) scale(1.55);opacity:0}
+}
 .mj-winning-rack{display:grid;justify-items:center;gap:7px;width:100%;min-width:0}
+.mj-winning-hand:is(.is-gold,.is-silver) .mj-winning-rack{position:relative}
 .mj-winning-tiles{display:flex;flex-wrap:wrap;justify-content:center;gap:3px;max-width:100%;--winning-columns:var(--winning-count)}
 .mj-winning-tiles .mj-tile{
   --tile-width:min(56px,calc((100cqw - 3px * (var(--winning-columns) - 1))/var(--winning-columns)));

@@ -507,10 +507,14 @@
     let winningHand='';
     if(Number.isInteger(winner)) {
       const player=s.players[winner],info=roundResult.info;
+      const tier=roundResult.top==='金顶'?'gold':roundResult.top==='银顶'?'silver':'';
       const winningTiles=player.hand.map(id=>tile(id,{winning:id===winningTile})).join('');
       const melds=meldsHtml(player,tile,true);
-      winningHand='<section class="mj-winning-hand" aria-label="赢家牌面"><strong>'+esc(label(winner))+' · '+
-        (info.clean?'清水':'浑水')+esc(info.name)+'</strong><div class="mj-winning-rack"><div class="mj-winning-tiles" style="--winning-count:'+player.hand.length+'">'+winningTiles+'</div>'+
+      const celebration=tier?' data-mj-celebration="'+esc(s.sessionId+'-'+roundResult.round+'-'+roundResult.at)+'"':'';
+      const badge=tier?'<span class="mj-winning-tier">'+roundResult.top+'</span>':'';
+      const fireworks=tier?'<div class="mj-fireworks" aria-hidden="true"><i></i><i></i><i></i></div>':'';
+      winningHand='<section class="mj-winning-hand'+(tier?' is-'+tier:'')+'" aria-label="赢家牌面"'+celebration+'><strong>'+esc(label(winner))+' · '+
+        (info.clean?'清水':'浑水')+esc(info.name)+badge+'</strong>'+fireworks+'<div class="mj-winning-rack"><div class="mj-winning-tiles" style="--winning-count:'+player.hand.length+'">'+winningTiles+'</div>'+
         (melds?'<div class="mj-melds" aria-label="赢家吃碰杠">'+melds+'</div>':'')+'</div></section>';
     }
     const center=winningHand?'<div class="mj-center">'+winningHand+'</div>':
